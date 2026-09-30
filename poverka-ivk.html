@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Поверка ИВК</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=PT+Serif:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8ECEE; --surface:#FFFFFF; --sunk:#F3F5F6; --ink:#16202B; --muted:#5A6773; --line:#C8D0D6;
+  --accent:#245B7A; --accent-ink:#FFFFFF; --ok:#1E7A4C; --fail:#B42318; --warn:#A15C07; --off:#98A3AD;
+  --lamp-off:#CBD2D8;
+  --sans:"PT Sans","Segoe UI",Arial,sans-serif; --serif:"PT Serif","Times New Roman",Times,serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --bg:#12181E; --surface:#1B232B; --sunk:#151C22; --ink:#E4E9ED; --muted:#98A5B0; --line:#33404B;
+  --accent:#6FA8CB; --accent-ink:#0E1419; --ok:#4CC38A; --fail:#FF6B5E; --warn:#E3A33B; --off:#5E6B76; --lamp-off:#2D3842;
+}}
+:root[data-theme="dark"]{
+  --bg:#12181E; --surface:#1B232B; --sunk:#151C22; --ink:#E4E9ED; --muted:#98A5B0; --line:#33404B;
+  --accent:#6FA8CB; --accent-ink:#0E1419; --ok:#4CC38A; --fail:#FF6B5E; --warn:#E3A33B; --off:#5E6B76; --lamp-off:#2D3842;
+}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 120px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 var(--sans);-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- header + annunciator ---------- */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:16px;padding:12px 20px;max-width:1280px;margin:0 auto;flex-wrap:wrap}
+.title{flex:1 1 280px;min-width:0}
+.title h1{margin:0;font-size:1.25rem;line-height:1.2}
+.title p{margin:2px 0 0;color:var(--muted);font-size:.875rem}
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:6px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.panel{display:flex;gap:6px;padding:0 20px 12px;max-width:1280px;margin:0 auto;overflow-x:auto}
+.lamp{flex:1 0 118px;display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:7px 10px;background:var(--sunk);cursor:pointer;text-align:left}
+.lamp i{width:14px;height:14px;border-radius:3px;flex:none;background:var(--lamp-off);box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.lamp b{display:block;font-size:.8125rem;line-height:1.15}
+.lamp span{display:block;font-size:.75rem;color:var(--muted)}
+.lamp.ok i{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.lamp.fail i{background:var(--fail);box-shadow:0 0 8px var(--fail)}
+.lamp.partial i{background:var(--warn)}
+.lamp.off{opacity:.55}
+.lamp.verdict{flex:1.4 0 170px;background:var(--surface)}
+.lamp.verdict.ok{border-color:var(--ok)} .lamp.verdict.fail{border-color:var(--fail)}
+
+/* ---------- tabs + layout ---------- */
+.tabs{display:flex;gap:4px;max-width:1280px;margin:0 auto;padding:0 20px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 14px;border-bottom:3px solid transparent;cursor:pointer;color:var(--muted);white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:700}
+main{max-width:1280px;margin:0 auto;padding:20px}
+section.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:18px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px;margin-bottom:12px}
+.sec-head h2{margin:0;font-size:1.0625rem;flex:1 1 360px;line-height:1.3}
+.sec-head .lim{color:var(--muted);font-size:.875rem}
+.ctrl{display:flex;align-items:center;gap:8px;font-size:.875rem;color:var(--muted)}
+.ctrl input[type=number]{width:64px}
+.switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:.875rem}
+.note{color:var(--muted);font-size:.875rem;margin:8px 0 0;max-width:80ch}
+.muted{color:var(--muted)}
+h3{font-size:1rem;margin:16px 0 8px}
+
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px 18px}
+.fields label{display:flex;flex-direction:column;gap:4px;font-size:.875rem;color:var(--muted)}
+.fields input,.fields select{padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink)}
+.checks{display:flex;flex-wrap:wrap;gap:10px 22px}
+
+.scroll{overflow-x:auto;max-width:100%}
+table.grid{border-collapse:collapse;min-width:100%;font-variant-numeric:tabular-nums}
+.grid th,.grid td{border:1px solid var(--line);padding:4px 6px;text-align:center;vertical-align:middle}
+.grid th{background:var(--sunk);font-weight:400;font-size:.875rem;line-height:1.25}
+.grid td.name{background:var(--sunk);white-space:nowrap}
+.grid td.span{background:var(--sunk);font-size:.875rem}
+.grid input{width:100%;min-width:92px;border:1px solid transparent;background:transparent;padding:6px 6px;text-align:right;border-radius:4px}
+.grid input:hover{border-color:var(--line)}
+.grid input:focus{background:var(--sunk);border-color:var(--accent);outline:none}
+.grid input.given{color:var(--muted)}
+.out{min-width:96px;text-align:right!important;white-space:nowrap;font-weight:700}
+.out.ok{color:var(--ok)} .out.fail{color:var(--fail);background:color-mix(in srgb,var(--fail) 10%,transparent)}
+.out.empty,.out.off{color:var(--off);font-weight:400}
+.comp{font-size:.8125rem;color:var(--muted);font-weight:400;text-align:left!important;white-space:normal}
+tr.na td{opacity:.45}
+.fixed{color:var(--muted)}
+
+/* ---------- protocol sheet (preview + print) ---------- */
+.sheet-wrap{overflow-x:auto}
+.sheet{background:#fff;color:#000;font:12pt/1.35 var(--serif);width:210mm;min-height:297mm;margin:0 auto;padding:18mm 14mm 18mm 22mm;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.sheet h4{text-align:center;font-weight:400;margin:0}
+.sheet .pt{text-align:center;font-weight:700;margin:14px 0 0}
+.sheet .fl{margin:4px 0 4px 40px}
+.sheet .u{display:inline-block;min-width:38mm;border-bottom:1px solid #000;padding:0 4px}
+.sheet .u.w{min-width:95mm}
+.sheet .cap{margin:14px 0 4px}
+.sheet .sh{font-weight:700;text-align:center;margin:16px 0 8px}
+.sheet table{border-collapse:collapse;width:100%;font-size:11pt;page-break-inside:avoid;break-inside:avoid}
+.sheet th,.sheet td{border:1px solid #000;padding:3px 5px;text-align:center;vertical-align:middle;font-weight:400}
+.sheet td.l{text-align:left}
+.sheet .sig{margin-top:18px}
+.sheet .hint{font-size:9pt;display:block;text-align:center}
+.pb{break-before:page;page-break-before:always}
+#print{display:none}
+@media print{
+  @page{size:A4;margin:16mm 12mm 16mm 20mm}
+  body{background:#fff}
+  .top,.tabs,main{display:none!important}
+  #print{display:block}
+  #print .sheet{box-shadow:none;width:auto;min-height:0;padding:0;margin:0}
+}
+@media (max-width:640px){
+  .bar{padding:10px 14px} main{padding:14px} .panel,.tabs{padding-left:14px;padding-right:14px}
+  section.card{padding:14px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.dev{display:flex;flex-direction:column;gap:2px;font-size:.75rem;color:var(--muted)}
+.dev select{padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--sunk);color:var(--ink);font-size:.9375rem;font-weight:700}
+.lamp{flex:1 0 112px}
+.grid td.l{text-align:left}
+.grid input.txt{text-align:left;min-width:130px}
+.grid td.name input{text-align:center;min-width:80px}
+.grid input.ok{color:var(--ok);font-weight:700}
+.grid input.fail{color:var(--fail);font-weight:700;background:color-mix(in srgb,var(--fail) 10%,transparent)}
+.lims{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 10px}
+.lims label{display:flex;align-items:center;gap:6px;font-size:.875rem;color:var(--muted)}
+.lims input{width:90px;padding:5px 8px;border:1px solid var(--line);border-radius:5px;background:var(--sunk);color:var(--ink);text-align:right}
+.part{margin:6px 2px 12px;font-size:1rem;color:var(--muted);font-weight:700;max-width:90ch}
+.sheet .rh{display:flex;justify-content:space-between;border-bottom:1px solid #000;margin-bottom:10px;font-size:11pt}
+.sheet .sp{letter-spacing:.18em}
+.sheet td.l{text-align:left}
+.sheet .brk{page-break-inside:auto;break-inside:auto}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="bar">
+    <label class="dev">Тип ИВК
+      <select id="device" aria-label="Тип ИВК">
+        <option value="imc03">ИМЦ-03</option>
+        <option value="imc07">ИМЦ-07</option>
+        <option value="oct">ОКТОПУС-Л</option>
+      </select>
+    </label>
+    <div class="title">
+      <h1 id="hTitle">Поверка ИВК</h1>
+      <p id="hSub"></p>
+    </div>
+    <button class="btn" id="btnReset" type="button">Новый протокол</button>
+    <button class="btn primary" id="btnPrint" type="button">Печать протокола</button>
+  </div>
+  <div class="panel" id="panel" role="list" aria-label="Состояние разделов"></div>
+  <div class="tabs" id="tabs" role="tablist"></div>
+</div>
+<main id="app"></main>
+<div id="print"></div>
+<script>
+(function(){
+"use strict";
+const KEY="ivk-poverka-v2", KEY_OLD="imc03-protocol-v1";
+const LIM={t11:0.015,t12:0.002,t13:0.025,t14:0.01,t15:0.01,t16:0.01};
+const G1=[[690,.00130],[700,.00126],[710,.00123],[720,.00119],[730,.00116],[740,.00113],[750,.00109],[760,.00106],[770,.00103],[780,.00100],[790,.00097],[800,.00094],[810,.00092],[820,.00089],[830,.00086],[840,.00084],[850,.00081],[860,.00079],[870,.00076],[880,.00074],[890,.00072],[900,.00070],[910,.00067],[920,.00065],[930,.00063],[940,.00061],[950,.00059],[960,.00057],[970,.00055],[980,.00053],[990,.00052]];
+const G2={"Нефть":1.2e-3,"Бензин":1.0e-3,"Керосин":0.7e-3,"Дизельное топливо":0.65e-3};
+const MONTHS=["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+
+/* ---------- helpers ---------- */
+const num=s=>{if(s===undefined||s===null)return NaN;const t=String(s).trim().replace(/\s/g,"").replace(",",".");return t===""?NaN:Number(t)};
+const ok=x=>Number.isFinite(x);
+const fmt=(x,d)=>ok(x)?x.toFixed(d).replace(".",",").replace(/^-(0,0+)$/,"$1"):"";
+const shw=s=>s===undefined||s===null?"":String(s).replace(".",",");
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sb=(a,b)=>`${a}<sub>${b}</sub>`;
+const NB="&nbsp;";
+const pv=v=>v!==""&&v!==undefined&&v!==null?esc(shw(v)):NB;
+const fv=o=>o&&ok(o.v)?fmt(o.v,o.d):NB;
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,parseInt(n)||a));
+function stOf(v,lim){return ok(v)?(Math.abs(v)<=lim+1e-12?"ok":"fail"):"empty"}
+function agg(list,used){
+  if(!used) return "off";
+  list=list.filter(s=>s!=="skip");
+  if(list.includes("fail")) return "fail";
+  if(list.length===0||list.every(s=>s==="empty")) return "empty";
+  if(list.some(s=>s==="empty"||s==="nolim")) return "partial";
+  return "ok";
+}
+function betaFor(r){if(!ok(r)||r<690||r>=1000)return NaN;for(let i=G1.length-1;i>=0;i--) if(r>=G1[i][0]) return G1[i][1];return NaN}
+const dateRu=(d,year=true)=>{if(!d)return year?`«____» ________________ 20__ г.`:`«_____» ___________________________`;const[y,mo,da]=d.split("-");return `«${da}» ${MONTHS[+mo-1]} ${y} г.`};
+function overall(T){const used=Object.values(T).filter(s=>s!=="off");if(!used.length)return "empty";if(used.includes("fail"))return "fail";if(used.some(s=>s!=="ok"))return "partial";return "ok";}
+
+/* =====================================================================
+   ИМЦ-03 (МИ 2587-2005)
+   ===================================================================== */
+let S;
+function fresh03(){
+  return {
+    meta:{no:"",zav:"",vyp:"",own:"",place:"",etType:"УПВА",etNo:"",who:"",date:"",verdict:"auto"},
+    comp:{POR:true,PMR:false,PP:true,PU:true,EPOR:false,EPMR:false},
+    product:"Нефть", ppType:"freq",
+    use:{t11:true,t12:true,t13:true,t14:true,t15:false,t16:false},
+    t11:[], n11:2, t12:[], n12:1, t13:[], n13:2,
+    t14:{f:"1000",nd:"1000",p1:["","",""],p2:["","",""],pair2:false},
+    t15:{fe:"1001",fp:"1000",rows:[{np:"",ne:""},{np:"",ne:""},{np:"",ne:""}]},
+    t16:{fp:"1000",fe:"1001",k:2,rows:[0,1,2].map(()=>({np:"",ne:["",""]}))},
+    rhoMin:"",
+    t22:{PR:io(),PP:io(),PU:io(),EPR:io()},
+    t23:{PR:io(),PP:io(),PU:io(),EPR:io()},
+    t24:{tmin:"",tmax:"",rmin:"",rmax:""},
+    t25:{imin:"4",imax:"20",rmin:"",rmax:""}
+  };
+}
+function io(){return {imin:"4",imax:"20",xmin:"",xmax:""}}
+function shape03(){
+  S.n11=clamp(S.n11,1,64); S.n12=clamp(S.n12,1,32); S.n13=clamp(S.n13,1,32);
+  while(S.t11.length<S.n11) S.t11.push([{d:"4",m:""},{d:"12",m:""},{d:"20",m:""}]); S.t11.length=S.n11;
+  while(S.t12.length<S.n12) S.t12.push([{d:"100",m:""},{d:"100000",m:""}]); S.t12.length=S.n12;
+  while(S.t13.length<S.n13) S.t13.push({f:"1000",nd:"100000",m:["","",""]}); S.t13.length=S.n13;
+  S.t16.k=clamp(S.t16.k,2,6);
+  S.t16.rows.forEach(r=>{while(r.ne.length<S.t16.k) r.ne.push(""); r.ne.length=S.t16.k;});
+}
+const TITLES={
+  t11:["1.1","Постоянный ток","Таблица 1.1 — Результаты определения погрешности измерений постоянного тока",`${sb("Δ","Iивк")} = ± 0,015 мА`],
+  t12:["1.2","Период и частота","Таблица 1.2 — Результаты определения погрешности измерений периода и частоты импульсного сигнала",`${sb("δ","Tивк")} = ± 0,002 %, ${sb("δ","fивк")} = ± 0,002 %`],
+  t13:["1.3","Количество импульсов","Таблица 1.3 — Результаты определения погрешности измерений количества импульсов",`${sb("δ","Nивк")} = ± 0,025 %`],
+  t14:["1.4","Импульсы за интервал","Таблица 1.4 — Результаты определения погрешности измерений количества импульсов за интервал времени",`${sb("δ","NTивк")} = ± 0,01 %`],
+  t15:["1.5","Отношение, один ЭПР","Таблица 1.5 — Результаты определения погрешности измерений отношения количества импульсов за интервал времени (для одного ЭПР (КПР))",`${sb("δ","RNTивк")} = ± 0,01 %`],
+  t16:["1.6","Отношение, несколько ЭПР","Таблица 1.6 — Результаты определения погрешности измерений отношения количества импульсов за интервал времени (для нескольких ЭПР (КПР))",`${sb("δ","RNTивк")} = ± 0,01 %`],
+  t26:["2.6","Преобразование в величины","",""]
+};
+function compute03(){
+  const O={}, T={}, info={}; let L;
+  L=[]; S.t11.forEach((inp,j)=>inp.forEach((c,i)=>{const v=num(c.m)-num(c.d);const st=stOf(v,LIM.t11);L.push(st);O[`t11-${j}-${i}`]={v,st,d:4};}));
+  T.t11=agg(L,S.use.t11);
+  L=[]; S.t12.forEach((inp,j)=>inp.forEach((c,i)=>{const d=num(c.d);const v=(num(c.m)-d)/d*100;const st=stOf(v,LIM.t12);L.push(st,st);O[`t12-${j}-${i}`]={v,st,d:5};O[`t12f-${j}-${i}`]={v,st,d:5};}));
+  T.t12=agg(L,S.use.t12);
+  L=[]; S.t13.forEach((inp,j)=>{const nd=num(inp.nd);inp.m.forEach((m,i)=>{const v=(num(m)-nd)/nd*100;const st=stOf(v,LIM.t13);L.push(st);O[`t13-${j}-${i}`]={v,st,d:4};});});
+  T.t13=agg(L,S.use.t13);
+  L=[]; {const nd=num(S.t14.nd);["p1","p2"].forEach(p=>{S.t14[p].forEach((m,i)=>{const v=(num(m)-nd)/nd*100;const st=stOf(v,LIM.t14);if(p==="p1"||S.t14.pair2)L.push(st);O[`t14-${p}-${i}`]={v,st,d:4};});});}
+  T.t14=agg(L,S.use.t14);
+  L=[]; {const r=num(S.t15.fp)/num(S.t15.fe);S.t15.rows.forEach((x,i)=>{const v=(num(x.np)/num(x.ne)-r)/r*100;const st=stOf(v,LIM.t15);L.push(st);O[`t15-${i}`]={v,st,d:4};});}
+  T.t15=agg(L,S.use.t15);
+  L=[]; {const k=S.t16.k,r=num(S.t16.fp)/(k*num(S.t16.fe));S.t16.rows.forEach((x,i)=>{const vals=x.ne.map(num);const sum=vals.every(ok)?vals.reduce((a,b)=>a+b,0):NaN;const v=(num(x.np)/sum-r)/r*100;const st=stOf(v,LIM.t16);L.push(st);O[`t16-${i}`]={v,st,d:4};});}
+  T.t16=agg(L,S.use.t16);
+
+  const rhoMin=num(S.rhoMin), beta=betaFor(rhoMin), gamma=G2[S.product];
+  const d28=o=>(num(o.xmax)-num(o.xmin))/(num(o.imax)-num(o.imin))*0.015;
+  const dt={},dp={};
+  for(const k of ["PR","PP","PU","EPR"]){dt[k]=d28(S.t22[k]);dp[k]=d28(S.t23[k]);O[`dt-${k}`]={v:dt[k],st:ok(dt[k])?"ok":"empty",d:5,plain:1};O[`dp-${k}`]={v:dp[k],st:ok(dp[k])?"ok":"empty",d:6,plain:1};}
+  const a=S.t24; const drF=(num(a.rmax)-num(a.rmin))/(num(a.tmax)-num(a.tmin))*(0.002/100)*num(a.tmax);
+  const b=S.t25; const drI=(num(b.rmax)-num(b.rmin))/(num(b.imax)-num(b.imin))*0.015;
+  const drho=S.ppType==="freq"?drF:drI;
+  O["drF"]={v:drF,st:ok(drF)?"ok":"empty",d:5,plain:1}; O["drI"]={v:drI,st:ok(drI)?"ok":"empty",d:5,plain:1};
+  O["beta"]={v:beta,st:ok(beta)?"ok":"empty",d:5,plain:1};
+  const Dt=(x,y,nx,ny)=>{const m=[];if(!ok(beta))m.push("ρ ППmin");if(!ok(dt[x]))m.push("t "+nx);if(!ok(dt[y]))m.push("t "+ny);return m.length?{m}:{v:100*beta*Math.hypot(dt[x],dt[y])}};
+  const Dp=(x,y,nx,ny)=>{const m=[];if(!ok(dp[x]))m.push("P "+nx);if(!ok(dp[y]))m.push("P "+ny);return m.length?{m}:{v:100*gamma*Math.hypot(dp[x],dp[y])}};
+  const Dr=()=>{const m=[];if(!ok(rhoMin))m.push("ρ ППmin");if(!ok(drho))m.push(S.ppType==="freq"?"табл. 2.4":"табл. 2.5");return m.length?{m}:{v:drho/rhoMin*100}};
+  const comb=(base,parts)=>{const miss=[].concat(...parts.map(p=>p.m||[]));if(miss.length)return {v:NaN,miss:[...new Set(miss)]};return {v:1.1*Math.sqrt(base*base+parts.reduce((s,p)=>s+p.v*p.v,0)),parts}};
+  const c=S.comp;
+  const R26=[
+    {id:"V",  txt:`Относительная погрешность преобразования входных сигналов в значение объема продукта (ПОР), ${sb("δ","V")}, %`, lim:0.025, app:c.POR, f:()=>({v:0.025,konst:"формула (7): δV = δNивк"})},
+    {id:"M1", txt:`Относительная погрешность преобразования входных сигналов в значение массы продукта (ПОР и ПП), ${sb("δ","M")}, %`, lim:0.05, app:c.POR&&c.PP, f:()=>{const r=Dr(),t=Dt("PP","PR","ПП","ПР"),p=Dp("PP","PR","ПП","ПР");return Object.assign(comb(0.025,[r,t,p]),{lab:["δρ","δt","δP"],fr:"(8)–(11)"})}},
+    {id:"M2", txt:`Относительная погрешность преобразования входных сигналов в значение массы продукта (ПМР), ${sb("δ","M")}, %`, lim:0.05, app:c.PMR, f:()=>({v:0.025,konst:"формула (12): δM = δNивк"})},
+    {id:"KvPU", txt:`Относительная погрешность преобразования входных сигналов в значение коэффициента преобразования ПОР при поверке (КМХ) по ПУ, ${sb("δ","Kv")}, %`, lim:0.025, app:c.POR&&c.PU, f:()=>{const t=Dt("PU","PR","ПУ","ПР"),p=Dp("PU","PR","ПУ","ПР");return Object.assign(comb(0.01,[t,p]),{lab:["δt","δP"],fr:"(13)–(15)"})}},
+    {id:"KvE", txt:`Относительная погрешность преобразования входных сигналов в значение коэффициента преобразования ПОР при поверке (КМХ) по ЭПОР (КПОР), ${sb("δ","Kv")}, %`, lim:0.025, app:c.POR&&c.EPOR, f:()=>{const t=Dt("EPR","PR","ЭПР","ПР"),p=Dp("EPR","PR","ЭПР","ПР");return Object.assign(comb(0.01,[t,p]),{lab:["δt","δP"],fr:"(16)–(18)"})}},
+    {id:"KmPU", txt:`Относительная погрешность преобразования входных сигналов в значение коэффициента преобразования ПМР при поверке (КМХ) по ПУ и ПП, ${sb("δ","Км")}, %`, lim:0.04, app:c.PMR&&c.PU&&c.PP, f:()=>{const r=Dr(),t=Dt("PP","PU","ПП","ПУ"),p=Dp("PP","PU","ПП","ПУ");return Object.assign(comb(0.01,[r,t,p]),{lab:["δρ","δt","δP"],fr:"(19)–(22)"})}},
+    {id:"KmE", txt:`Относительная погрешность преобразования входных сигналов в значение коэффициента преобразования ПМР при поверке (КМХ) по ЭПОР (КПОР) и ПП, ${sb("δ","Км")}, %`, lim:0.04, app:c.PMR&&c.EPOR&&c.PP, f:()=>{const r=Dr(),t=Dt("PP","EPR","ПП","ЭПР"),p=Dp("PP","EPR","ПП","ЭПР");return Object.assign(comb(0.01,[r,t,p]),{lab:["δρ","δt","δP"],fr:"(24)–(27)"})}},
+    {id:"KmM", txt:`Относительная погрешность преобразования входных сигналов в значение коэффициента преобразования ПМР при поверке (КМХ) по ЭПМР (КПМР), ${sb("δ","Км")}, %`, lim:0.04, app:c.PMR&&c.EPMR, f:()=>({v:0.01,konst:"формула (23): δКм = δRNTивк"})}
+  ];
+  L=[];
+  R26.forEach(r=>{
+    if(!r.app){r.st="off";O[`r26-${r.id}`]={v:NaN,st:"off",d:4,txtOff:"не применяется"};info[r.id]="";return;}
+    const res=r.f(); r.v=res.v; r.st=stOf(res.v,r.lim); L.push(r.st);
+    if(res.konst) info[r.id]=res.konst+" — постоянная величина";
+    else if(res.miss) info[r.id]="Нет данных: "+res.miss.join(", ");
+    else info[r.id]=`по формулам ${res.fr}: `+res.parts.map((p,i)=>`${res.lab[i]} = ${fmt(p.v,5)} %`).join("; ");
+    O[`r26-${r.id}`]={v:r.v,st:r.st,d:res.konst?3:4};
+  });
+  T.t26=agg(L,L.length>0);
+  const lamps=["t11","t12","t13","t14","t15","t16","t26"].map(k=>({key:k,num:TITLES[k][0],name:TITLES[k][1],st:T[k],jump:(k==="t26"?"p2":"p1")+"|"+k}));
+  return {O,T,R26,V:overall(T),beta,gamma,rhoMin,info,lamps};
+}
+const inp=(path,val,cls="")=>`<input inputmode="decimal" data-path="${path}" value="${esc(val)}" class="${cls}" aria-label="${path}">`;
+const out=id=>`<td class="out" data-out="${id}"></td>`;
+function head03(key,extra=""){
+  const t=TITLES[key];
+  return `<div class="sec-head"><h2>${t[2]}</h2><span class="lim">Предел: ${t[3]}</span>
+  <label class="switch"><input type="checkbox" data-check="use.${key}" ${S.use[key]?"checked":""}> Проводится</label>${extra}</div>`;
+}
+const cnt=(path,label,max,val,min=1)=>`<label class="ctrl">${label} <input type="number" min="${min}" max="${max}" data-count="${path}" value="${val}"></label>`;
+
+function viewMeta03(){
+  const m=S.meta,c=S.comp;
+  const f=(k,l,type="text")=>`<label>${l}<input type="${type}" data-path="meta.${k}" value="${esc(m[k])}"></label>`;
+  const ck=(k,l)=>`<label class="switch"><input type="checkbox" data-check="comp.${k}" ${c[k]?"checked":""}> ${l}</label>`;
+  return `<section class="card"><div class="sec-head"><h2>Реквизиты протокола</h2></div>
+  <div class="fields">${f("no","Протокол №")}${f("zav","Заводской номер ИВК")}${f("vyp","Дата выпуска")}${f("own","Принадлежит")}${f("place","Место проведения поверки")}${f("etType","Средство поверки: тип")}${f("etNo","Средство поверки: зав. №")}${f("who","Лицо, проводившее поверку (И.О. Фамилия)")}${f("date","Дата проведения поверки","date")}</div></section>
+  <section class="card"><div class="sec-head"><h2>Состав системы учета</h2></div>
+  <div class="checks">${ck("POR","ПОР")}${ck("PMR","ПМР")}${ck("PP","ПП")}${ck("PU","ПУ (ТПУ или КП)")}${ck("EPOR","ЭПОР (КПОР)")}${ck("EPMR","ЭПМР (КПМР)")}</div>
+  <div class="fields" style="margin-top:14px">
+    <label>Продукт (для γ по таблице Г.2)<select data-path="product" data-rr>${Object.keys(G2).map(k=>`<option ${S.product===k?"selected":""}>${k}</option>`).join("")}</select></label>
+    <label>Выход преобразователя плотности<select data-path="ppType" data-rr><option value="freq" ${S.ppType==="freq"?"selected":""}>частотный (табл. 2.4)</option><option value="cur" ${S.ppType==="cur"?"selected":""}>токовый (табл. 2.5)</option></select></label>
+  </div>
+  <p class="note">Состав системы определяет, какие строки таблицы 2.6 рассчитываются. Какие из таблиц 1.1–1.6 проводятся, отмечается переключателем «Проводится» в каждой таблице (раздел 3 МИ: обязательность операций определяется номенклатурой системы учета).</p></section>`;
+}
+function viewP1(){
+  let h="";
+  h+=`<section class="card" id="s-t11">${head03("t11",cnt("n11","Токовых входов:",64,S.n11))}<div class="scroll"><table class="grid"><thead><tr><th>Вход</th><th>${sb("I","Дi")},<br>мА</th><th>${sb("I","ji")},<br>мА</th><th>${sb("Δ","Iji")},<br>мА</th></tr></thead><tbody>`;
+  S.t11.forEach((r,j)=>r.forEach((c,i)=>{h+=`<tr>${i===0?`<td class="name" rowspan="3">ВхТ ${j+1}</td>`:""}<td>${inp(`t11.${j}.${i}.d`,c.d,"given")}</td><td>${inp(`t11.${j}.${i}.m`,c.m)}</td>${out(`t11-${j}-${i}`)}</tr>`;}));
+  h+=`</tbody></table></div><p class="note">Формула (1): ${sb("Δ","Iji")} = ${sb("I","ji")} − ${sb("I","Дi")}. Действительные значения по умолчанию 4, 12 и 20 мА (п. 8.3.1), их можно изменить.</p></section>`;
+  h+=`<section class="card" id="s-t12">${head03("t12",cnt("n12","Импульсных входов:",32,S.n12))}<div class="scroll"><table class="grid"><thead><tr><th>Вход</th><th>${sb("T","Дi")},<br>мкс</th><th>${sb("T","ji")},<br>мкс</th><th>${sb("δ","Tji")},<br>%</th><th>${sb("δ","fji")},<br>%</th></tr></thead><tbody>`;
+  S.t12.forEach((r,j)=>r.forEach((c,i)=>{h+=`<tr>${i===0?`<td class="name" rowspan="2">ВхИ ${j+1}</td>`:""}<td>${inp(`t12.${j}.${i}.d`,c.d,"given")}</td><td>${inp(`t12.${j}.${i}.m`,c.m)}</td>${out(`t12-${j}-${i}`)}${out(`t12f-${j}-${i}`)}</tr>`;}));
+  h+=`</tbody></table></div><p class="note">Формула (2); ${sb("δ","fji")} принимается равной ${sb("δ","Tji")} (п. 9.1.2). Периоды по умолчанию 100 и 100000 мкс (п. 8.3.2).</p></section>`;
+  h+=`<section class="card" id="s-t13">${head03("t13",cnt("n13","Импульсных входов:",32,S.n13))}<div class="scroll"><table class="grid"><thead><tr><th>Вход</th><th>f,<br>Гц</th><th>${sb("N","Д")},<br>имп.</th><th>${sb("N","ji")},<br>имп.</th><th>${sb("δ","Nji")},<br>%</th></tr></thead><tbody>`;
+  S.t13.forEach((r,j)=>r.m.forEach((m,i)=>{h+=`<tr>${i===0?`<td class="name" rowspan="3">ВхИ ${j+1}</td><td rowspan="3">${inp(`t13.${j}.f`,r.f,"given")}</td><td rowspan="3">${inp(`t13.${j}.nd`,r.nd,"given")}</td>`:""}<td>${inp(`t13.${j}.m.${i}`,m)}</td>${out(`t13-${j}-${i}`)}</tr>`;}));
+  h+=`</tbody></table></div><p class="note">Формула (3). Не менее 100 000 импульсов при 1000 Гц, не менее трех измерений (п. 8.3.3).</p></section>`;
+  const t4=S.t14;
+  h+=`<section class="card" id="s-t14">${head03("t14",`<label class="switch"><input type="checkbox" data-check="t14.pair2" data-rr ${t4.pair2?"checked":""}> Вторая пара детекторов (Дт 3 и Дт 4)</label>`)}<div class="scroll"><table class="grid"><thead><tr><th>f,<br>Гц</th><th>${sb("N","Д")},<br>имп.</th><th>${sb("N","i")},<br>имп.</th><th>${sb("δ","NTi")},<br>%</th></tr></thead><tbody>`;
+  const rs=t4.pair2?8:4;
+  h+=`<tr><td rowspan="${rs}">${inp("t14.f",t4.f,"given")}</td><td rowspan="${rs}">${inp("t14.nd",t4.nd,"given")}</td><td colspan="2" class="span">Входы Дт 1 и Дт 2</td></tr>`;
+  t4.p1.forEach((m,i)=>h+=`<tr><td>${inp(`t14.p1.${i}`,m)}</td>${out(`t14-p1-${i}`)}</tr>`);
+  if(t4.pair2){h+=`<tr><td colspan="2" class="span">Входы Дт 3 и Дт 4</td></tr>`;t4.p2.forEach((m,i)=>h+=`<tr><td>${inp(`t14.p2.${i}`,m)}</td>${out(`t14-p2-${i}`)}</tr>`);}
+  h+=`</tbody></table></div><p class="note">Формула (4). Не менее 1000 импульсов, не менее трех измерений для каждой пары входов детекторов (п. 8.3.4).</p></section>`;
+  const t5=S.t15;
+  h+=`<section class="card" id="s-t15">${head03("t15")}<div class="scroll"><table class="grid"><thead><tr><th>${sb("f","Э")},<br>Гц</th><th>${sb("f","Р")},<br>Гц</th><th>${sb("N","Pi")},<br>имп</th><th>${sb("N","Эi")},<br>имп</th><th>${sb("δ","RNTi")},<br>%</th></tr></thead><tbody>`;
+  t5.rows.forEach((r,i)=>h+=`<tr>${i===0?`<td rowspan="3">${inp("t15.fe",t5.fe,"given")}</td><td rowspan="3">${inp("t15.fp",t5.fp,"given")}</td>`:""}<td>${inp(`t15.rows.${i}.np`,r.np)}</td><td>${inp(`t15.rows.${i}.ne`,r.ne)}</td>${out(`t15-${i}`)}</tr>`);
+  h+=`</tbody></table></div><p class="note">Формула (5). Частоты по умолчанию: рабочий ПР 1000 Гц, ЭПР 1001 Гц (п. 8.3.5).</p></section>`;
+  const t6=S.t16;
+  h+=`<section class="card" id="s-t16">${head03("t16",cnt("t16.k","Количество ЭПР (КПР):",6,t6.k,2))}<div class="scroll"><table class="grid"><thead><tr><th>${sb("f","Р")},<br>Гц</th><th>${sb("f","Э")},<br>Гц</th><th>${sb("N","Pi")},<br>имп</th>${Array.from({length:t6.k},(_,k)=>`<th>${sb("N","Э"+(k+1)+"i")},<br>имп</th>`).join("")}<th>${sb("δ","RNTi")},<br>%</th></tr></thead><tbody>`;
+  t6.rows.forEach((r,i)=>h+=`<tr>${i===0?`<td rowspan="3">${inp("t16.fp",t6.fp,"given")}</td><td rowspan="3">${inp("t16.fe",t6.fe,"given")}</td>`:""}<td>${inp(`t16.rows.${i}.np`,r.np)}</td>${r.ne.map((v,k)=>`<td>${inp(`t16.rows.${i}.ne.${k}`,v)}</td>`).join("")}${out(`t16-${i}`)}</tr>`);
+  h+=`</tbody></table></div><p class="note">Формула (6), n — количество ЭПР (КПР).</p></section>`;
+  return h;
+}
+function viewP2(C){
+  const io4=(tb,key,lab)=>{const o=S[tb][key];return `<tr><td class="name">${lab}</td><td>${inp(`${tb}.${key}.imin`,o.imin,"given")}</td><td>${inp(`${tb}.${key}.imax`,o.imax,"given")}</td><td>${inp(`${tb}.${key}.xmin`,o.xmin)}</td><td>${inp(`${tb}.${key}.xmax`,o.xmax)}</td>${out((tb==="t22"?"dt-":"dp-")+key)}</tr>`};
+  let h=`<section class="card"><div class="sec-head"><h2>Таблица 2.1 — Исходные данные</h2></div><div class="scroll"><table class="grid"><thead><tr>
+  <th>${sb("Δ","Iивк")},<br>мА</th><th>${sb("δ","Tивк")},<br>%</th><th>${sb("δ","Nивк")},<br>%</th><th>${sb("δ","NTивк")},<br>%</th><th>${sb("δ","RNTивк")},<br>%</th><th>${sb("δ","Vивк")},<br>%</th><th>${sb("ρ","ППmin")},<br>кг/м³</th><th>${sb("β","max")},<br>1/°С</th><th>${sb("γ","max")},<br>1/МПа</th></tr></thead>
+  <tbody><tr><td class="fixed">0,015</td><td class="fixed">0,002</td><td class="fixed">0,025</td><td class="fixed">0,01</td><td class="fixed">0,01</td><td class="fixed">0,025</td><td>${inp("rhoMin",S.rhoMin)}</td>${out("beta")}<td class="out ok">${fmt(C.gamma*1000,2)}·10⁻³</td></tr></tbody></table></div>
+  <p class="note">${sb("β","max")} подставляется из таблицы Г.1 по ${sb("ρ","ППmin")} (диапазон 690–999,9 кг/м³), ${sb("γ","max")} — из таблицы Г.2 по продукту «${esc(S.product)}» (продукт меняется во вкладке «Реквизиты и состав»).</p></section>`;
+  h+=`<section class="card"><div class="sec-head"><h2>Таблица 2.2 — Исходные данные ПТ</h2></div><div class="scroll"><table class="grid"><thead><tr><th>Параметр</th><th>${sb("I","min")},<br>мА</th><th>${sb("I","max")},<br>мА</th><th>${sb("t","min")},<br>°С</th><th>${sb("t","max")},<br>°С</th><th>Δt по (28),<br>°С</th></tr></thead><tbody>
+  ${io4("t22","PR",sb("t","ПР"))}${io4("t22","PP",sb("t","ПП"))}${io4("t22","PU",sb("t","ПУ"))}${io4("t22","EPR",sb("t","ЭПР"))}</tbody></table></div></section>`;
+  h+=`<section class="card"><div class="sec-head"><h2>Таблица 2.3 — Исходные данные ПД</h2></div><div class="scroll"><table class="grid"><thead><tr><th>Параметр</th><th>${sb("I","min")},<br>мА</th><th>${sb("I","max")},<br>мА</th><th>${sb("P","min")},<br>МПа</th><th>${sb("P","max")},<br>МПа</th><th>ΔP по (28),<br>МПа</th></tr></thead><tbody>
+  ${io4("t23","PR",sb("P","ПР"))}${io4("t23","PP",sb("P","ПП"))}${io4("t23","PU",sb("P","ПУ"))}${io4("t23","EPR",sb("P","ЭПР"))}</tbody></table></div>
+  <p class="note">Последний столбец не входит в форму протокола: это промежуточная абсолютная погрешность по формуле (28) при ${sb("Δ","Iивк")} = 0,015 мА.</p></section>`;
+  const a=S.t24,b=S.t25,isF=S.ppType==="freq";
+  h+=`<section class="card"><div class="sec-head"><h2>Таблица 2.4 — Исходные данные ПП с частотным выходом</h2><span class="lim">${isF?"используется в расчете":"не используется: выбран токовый выход"}</span></div><div class="scroll"><table class="grid"><thead><tr><th>Параметр</th><th>${sb("T","min")},<br>мкс</th><th>${sb("T","max")},<br>мкс</th><th>${sb("ρ","min")},<br>кг/м³</th><th>${sb("ρ","max")},<br>кг/м³</th><th>Δρ по (29),<br>кг/м³</th></tr></thead><tbody class="${isF?"":"na"}">
+  <tr><td class="name">${sb("ρ","ПП")}</td><td>${inp("t24.tmin",a.tmin)}</td><td>${inp("t24.tmax",a.tmax)}</td><td>${inp("t24.rmin",a.rmin)}</td><td>${inp("t24.rmax",a.rmax)}</td>${out("drF")}</tr></tbody></table></div></section>`;
+  h+=`<section class="card"><div class="sec-head"><h2>Таблица 2.5 — Исходные данные ПП с токовым выходом</h2><span class="lim">${!isF?"используется в расчете":"не используется: выбран частотный выход"}</span></div><div class="scroll"><table class="grid"><thead><tr><th>Параметр</th><th>${sb("I","min")},<br>мА</th><th>${sb("I","max")},<br>мА</th><th>${sb("ρ","min")},<br>кг/м³</th><th>${sb("ρ","max")},<br>кг/м³</th><th>Δρ по (28),<br>кг/м³</th></tr></thead><tbody class="${!isF?"":"na"}">
+  <tr><td class="name">${sb("ρ","ПП")}</td><td>${inp("t25.imin",b.imin,"given")}</td><td>${inp("t25.imax",b.imax,"given")}</td><td>${inp("t25.rmin",b.rmin)}</td><td>${inp("t25.rmax",b.rmax)}</td>${out("drI")}</tr></tbody></table></div></section>`;
+  h+=`<section class="card" id="s-t26"><div class="sec-head"><h2>Таблица 2.6 — Результаты определения погрешности преобразования входных электрических сигналов в значения величин</h2></div><div class="scroll"><table class="grid"><thead><tr><th>Название</th><th>Значение</th><th>Предел</th></tr></thead><tbody>`;
+  C.R26.forEach(r=>h+=`<tr class="${r.app?"":"na"}"><td style="text-align:left;min-width:320px">${r.txt}<div class="comp" data-info="${r.id}"></div></td>${out("r26-"+r.id)}<td>${fmt(r.lim,r.lim===0.025?3:2)}</td></tr>`);
+  h+=`</tbody></table></div><p class="note">Строки рассчитываются по составу системы учета. Для неприменимых строк в протоколе ставится прочерк.</p></section>`;
+  return h;
+}
+function sheet03(C){
+  const m=S.meta,O=C.O,E=NB;
+  const v=id=>{const o=O[id];return o&&ok(o.v)?fmt(o.v,o.d):E};
+  const g=pv;
+  const off=(cols)=>`<tr><td colspan="${cols}">Не проводилось</td></tr>`;
+  let h=`<h4>Приложение Б</h4><h4>Форма протокола поверки ИВК</h4>
+  <p class="pt">ПРОТОКОЛ № ${m.no?`<span class="u" style="min-width:18mm">${esc(m.no)}</span>`:"___"}</p><p class="pt" style="margin-top:0">поверки ИВК ИМЦ-03</p>
+  <div style="margin-top:14px">
+  <p class="fl">Заводской номер <span class="u">${g(m.zav)}</span> &nbsp; Дата выпуска <span class="u">${g(m.vyp)}</span></p>
+  <p class="fl">Принадлежит <span class="u w">${g(m.own)}</span></p>
+  <p class="fl">Место проведения поверки <span class="u w" style="min-width:75mm">${g(m.place)}</span></p>
+  <p class="fl">Средство поверки: Тип <span class="u" style="min-width:55mm">${g(m.etType)}</span> Зав.№ <span class="u" style="min-width:25mm">${g(m.etNo)}</span></p></div>
+  <p class="sh">1 Определение погрешности измерений входных электрических сигналов</p>`;
+  h+=`<p class="cap">Таблица 1.1 - Результаты определения погрешности измерений постоянного тока (${sb("Δ","Iивк")} = ± 0,015 мА)</p><table><tr><th>Вход</th><th>${sb("I","Дi")},<br>мА</th><th>${sb("I","ji")},<br>мА</th><th>${sb("Δ","Iji")},<br>мА</th></tr>`;
+  if(!S.use.t11) h+=off(4); else S.t11.forEach((r,j)=>r.forEach((c,i)=>h+=`<tr>${i===0?`<td rowspan="3">ВхТ ${j+1}</td>`:""}<td>${g(c.d)}</td><td>${g(c.m)}</td><td>${v(`t11-${j}-${i}`)}</td></tr>`));
+  h+=`</table>`;
+  h+=`<p class="cap">Таблица 1.2 - Результаты определения погрешности измерений периода и частоты импульсного сигнала (${sb("δ","Tивк")} = ± 0,002 %, ${sb("δ","fивк")} = ± 0,002 %)</p><table><tr><th>Вход</th><th>${sb("T","Дi")},<br>мкс</th><th>${sb("T","ji")},<br>мкс</th><th>${sb("δ","Tji")},<br>%</th><th>${sb("δ","fji")},<br>%</th></tr>`;
+  if(!S.use.t12) h+=off(5); else S.t12.forEach((r,j)=>r.forEach((c,i)=>h+=`<tr>${i===0?`<td rowspan="2">ВхИ ${j+1}</td>`:""}<td>${g(c.d)}</td><td>${g(c.m)}</td><td>${v(`t12-${j}-${i}`)}</td><td>${v(`t12f-${j}-${i}`)}</td></tr>`));
+  h+=`</table><div class="pb"></div>`;
+  h+=`<p class="cap">Таблица 1.3 - Результаты определения погрешности измерений количества импульсов (${sb("δ","Nивк")} = ± 0,025 %)</p><table><tr><th>Вход</th><th>f,<br>Гц</th><th>${sb("N","Д")},<br>имп.</th><th>${sb("N","ji")},<br>имп.</th><th>${sb("δ","Nji")}<br>%</th></tr>`;
+  if(!S.use.t13) h+=off(5); else S.t13.forEach((r,j)=>r.m.forEach((mm,i)=>h+=`<tr>${i===0?`<td rowspan="3">ВхИ ${j+1}</td><td rowspan="3">${g(r.f)}</td><td rowspan="3">${g(r.nd)}</td>`:""}<td>${g(mm)}</td><td>${v(`t13-${j}-${i}`)}</td></tr>`));
+  h+=`</table>`;
+  const t4=S.t14;
+  h+=`<p class="cap">Таблица 1.4 - Результаты определения погрешности измерений количества импульсов за интервал времени (${sb("δ","NTивк")} = ± 0,01 %)</p><table><tr><th>f,<br>Гц</th><th>${sb("N","Д")},<br>имп.</th><th>${sb("N","i")},<br>имп.</th><th>${sb("δ","NTi")},<br>%</th></tr>`;
+  if(!S.use.t14) h+=off(4); else {
+    h+=`<tr><td rowspan="8">${g(t4.f)}</td><td rowspan="8">${g(t4.nd)}</td><td colspan="2">Входы Дт 1 и Дт 2</td></tr>`;
+    t4.p1.forEach((mm,i)=>h+=`<tr><td>${g(mm)}</td><td>${v(`t14-p1-${i}`)}</td></tr>`);
+    h+=`<tr><td colspan="2">Входы Дт 3 и Дт 4</td></tr>`;
+    t4.p2.forEach((mm,i)=>h+=`<tr><td>${t4.pair2?g(mm):E}</td><td>${t4.pair2?v(`t14-p2-${i}`):E}</td></tr>`);
+  }
+  h+=`</table>`;
+  const t5=S.t15;
+  h+=`<p class="cap">Таблица 1.5 - Результаты определения погрешности измерений отношения количества импульсов за интервал времени (для одного ЭПР (КПР)) (${sb("δ","RNTивк")} = ± 0,01 %)</p><table><tr><th>${sb("f","Э")},<br>Гц</th><th>${sb("f","Р")},<br>Гц</th><th>${sb("N","Pi")},<br>имп</th><th>${sb("N","Эi")},<br>имп</th><th>${sb("δ","RNTi")},<br>%</th></tr>`;
+  if(!S.use.t15) h+=off(5); else t5.rows.forEach((r,i)=>h+=`<tr>${i===0?`<td rowspan="3">${g(t5.fe)}</td><td rowspan="3">${g(t5.fp)}</td>`:""}<td>${g(r.np)}</td><td>${g(r.ne)}</td><td>${v(`t15-${i}`)}</td></tr>`);
+  h+=`</table>`;
+  const t6=S.t16;
+  h+=`<p class="cap">Таблица 1.6 - Результаты определения погрешности измерений отношения количества импульсов за интервал времени (для нескольких ЭПР (КПР)) (${sb("δ","RNTивк")} = ± 0,01 %)</p><table><tr><th>${sb("f","Р")},<br>Гц</th><th>${sb("f","Э")},<br>Гц</th><th>${sb("N","Pi")},<br>имп</th>`;
+  if(!S.use.t16){h+=`<th>${sb("N","Э1i")},<br>имп</th><th>…</th><th>${sb("N","Эni")},<br>имп</th><th>${sb("δ","RNTi")},<br>%</th></tr>`+off(7);}
+  else{h+=Array.from({length:t6.k},(_,k)=>`<th>${sb("N","Э"+(k+1)+"i")},<br>имп</th>`).join("")+`<th>${sb("δ","RNTi")},<br>%</th></tr>`;
+    t6.rows.forEach((r,i)=>h+=`<tr>${i===0?`<td rowspan="3">${g(t6.fp)}</td><td rowspan="3">${g(t6.fe)}</td>`:""}<td>${g(r.np)}</td>${r.ne.map(x=>`<td>${g(x)}</td>`).join("")}<td>${v(`t16-${i}`)}</td></tr>`);}
+  h+=`</table><div class="pb"></div>`;
+  h+=`<p class="sh" style="text-align:left">2 Определение погрешности преобразования входных электрических сигналов в значения величин.</p>
+  <p class="cap">Таблица 2.1 - Исходные данные</p><table><tr><th>${sb("Δ","Iивк")},<br>мА</th><th>${sb("δ","Tивк")},<br>%</th><th>${sb("δ","Nивк")},<br>%</th><th>${sb("δ","NTивк")},<br>%</th><th>${sb("δ","RNTивк")},<br>%</th><th>${sb("δ","Vивк")},<br>%</th><th>${sb("ρ","ППmin")},<br>кг/м<sup>3</sup></th><th>${sb("β","max")},<br>1/°С</th><th>${sb("γ","max")},<br>1/МПа</th></tr>
+  <tr><td>0,015</td><td>0,002</td><td>0,025</td><td>0,01</td><td>0,01</td><td>0,025</td><td>${g(S.rhoMin)}</td><td>${ok(C.beta)?fmt(C.beta,5):E}</td><td>${fmt(C.gamma*1000,2)}·10<sup>-3</sup></td></tr></table>`;
+  const tbl=(cap,tb,labs,u)=>`<p class="cap">${cap}</p><table><tr><th>Параметр</th><th>${sb("I","min")},<br>мА</th><th>${sb("I","max")},<br>мА</th><th>${u[0]}</th><th>${u[1]}</th></tr>`+
+    ["PR","PP","PU","EPR"].map((k,i)=>{const o=S[tb][k];const any=o.xmin!==""||o.xmax!=="";return `<tr><td>${labs[i]}</td><td>${any?g(o.imin):E}</td><td>${any?g(o.imax):E}</td><td>${g(o.xmin)}</td><td>${g(o.xmax)}</td></tr>`}).join("")+`</table>`;
+  h+=tbl("Таблица 2.2 - Исходные данные ПТ","t22",[sb("t","ПР"),sb("t","ПП"),sb("t","ПУ"),sb("t","ЭПР")],[`${sb("t","min")},<br>°С`,`${sb("t","max")},<br>°С`]);
+  h+=tbl("Таблица 2.3 - Исходные данные ПД","t23",[sb("P","ПР"),sb("P","ПП"),sb("P","ПУ"),sb("P","ЭПР")],[`${sb("P","min")},<br>МПа`,`${sb("P","max")},<br>МПа`]);
+  const a=S.t24,b=S.t25,isF=S.ppType==="freq";
+  h+=`<p class="cap">Таблица 2.4 - Исходные данные ПП с частотным выходом</p><table><tr><th>Параметр</th><th>${sb("T","min")},<br>мкс</th><th>${sb("T","max")},<br>мкс</th><th>${sb("ρ","min")},<br>кг/м<sup>3</sup></th><th>${sb("ρ","max")},<br>кг/м<sup>3</sup></th></tr><tr><td>${sb("ρ","ПП")}</td><td>${isF?g(a.tmin):E}</td><td>${isF?g(a.tmax):E}</td><td>${isF?g(a.rmin):E}</td><td>${isF?g(a.rmax):E}</td></tr></table>`;
+  h+=`<p class="cap">Таблица 2.5 - Исходные данные ПП с токовым выходом</p><table><tr><th>Параметр</th><th>${sb("I","min")},<br>мА</th><th>${sb("I","max")},<br>мА</th><th>${sb("ρ","min")},<br>кг/м<sup>3</sup></th><th>${sb("ρ","max")},<br>кг/м<sup>3</sup></th></tr><tr><td>${sb("ρ","ПП")}</td><td>${!isF?g(b.imin):E}</td><td>${!isF?g(b.imax):E}</td><td>${!isF?g(b.rmin):E}</td><td>${!isF?g(b.rmax):E}</td></tr></table><div class="pb"></div>`;
+  h+=`<p class="cap">Таблица 2.6 - Результаты определения погрешности преобразования входных электрических сигналов в значения величин</p><table><tr><th>Название</th><th style="width:22mm">Значение</th><th style="width:18mm">Предел</th></tr>`+
+    C.R26.map(r=>`<tr><td class="l">${r.txt}</td><td>${r.app?(ok(r.v)?fmt(r.v,O["r26-"+r.id].d):E):"—"}</td><td>${fmt(r.lim,r.lim===0.025?3:2)}</td></tr>`).join("")+`</table>`;
+  const vv=verdictText(S.meta.verdict,C.V,["пригоден","не пригоден"]);
+  h+=`<p class="sig" style="margin-left:40px">Заключение: ИВК ИМЦ-03 к дальнейшей эксплуатации <span class="u" style="min-width:48mm;text-align:center">${vv||E}</span><span class="hint" style="margin-left:95mm;text-align:left">пригоден, не пригоден</span></p>
+  <p class="sig" style="margin-left:40px">Лицо, проводившее поверку &nbsp; <span class="u" style="min-width:32mm">${E}</span> &nbsp; <span class="u" style="min-width:45mm;text-align:center">${g(m.who)}</span><span class="hint" style="margin-left:52mm;text-align:left">подпись &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; И.О. Фамилия</span></p>
+  <p class="sig" style="margin-left:40px">Дата проведения поверки &nbsp;&nbsp; ${dateRu(m.date)}</p>`;
+  return h;
+}
+function verdictText(sel,V,w){return sel==="yes"?w[0]:sel==="no"?w[1]:(V==="ok"?w[0]:V==="fail"?w[1]:"")}
+
+const MOD03={
+  id:"imc03", label:"ИМЦ-03", title:"Поверка ИВК ИМЦ-03", subtitle:"Протокол по форме приложения Б МИ 2587-2005",
+  words:["пригоден","не пригоден"], verdictLine:true,
+  tabs:[["meta","Реквизиты и состав"],["p1","1 Входные сигналы"],["p2","2 Преобразование в величины"],["doc","Протокол"]],
+  fresh:fresh03,
+  shape(){S=STORE.imc03;shape03();},
+  compute(){S=STORE.imc03;return compute03();},
+  view(tab,C){return tab==="meta"?viewMeta03():tab==="p1"?viewP1():tab==="p2"?viewP2(C):viewDoc(this);},
+  sheet(C){return sheet03(C);}
+};
+
+/* =====================================================================
+   Универсальный движок форм (ИМЦ-07, ОКТОПУС-Л)
+   ===================================================================== */
+const rel=(a,b)=>(a-b)/b*100;
+const numObj=o=>{const r={};for(const k in o) r[k]=num(o[k]);return r};
+const cmpPO=(a,b)=>{a=String(a??"").trim();b=String(b??"").trim();if(!a||!b)return "empty";return a.replace(/\s/g,"").toLowerCase()===b.replace(/\s/g,"").toLowerCase()?"ok":"fail"};
+
+function gEnsure(sp,st){
+  let d=st.tables[sp.id];
+  if(!d) d=st.tables[sp.id]={n:sp.defN||1,groups:[],vals:{},lims:{}};
+  if(sp.type==="meas"){
+    d.n=sp.fixed?1:clamp(d.n,1,sp.maxN||64);
+    if(sp.dyn) d.k=clamp(d.k??sp.dyn.def,sp.dyn.min,sp.dyn.max);
+    const nr=sp.sections?sp.sections.reduce((a,s)=>a+s.rows,0):sp.rowsPer;
+    const nc=sp.comps?2:1;
+    while(d.groups.length<d.n){const g={g:{},lim:"",rows:[]};(sp.gcols||[]).forEach(c=>g.g[c.key]=c.def||"");if(sp.nameEdit)g.g.name="";d.groups.push(g);}
+    d.groups.length=d.n;
+    d.groups.forEach(g=>{
+      while(g.rows.length<nr){const i=g.rows.length;const r={r:{},c:[]};(sp.rcols||[]).forEach(c=>r.r[c.key]=(c.defs&&c.defs[i])||"");g.rows.push(r);}
+      g.rows.length=nr;
+      g.rows.forEach(r=>{while(r.c.length<nc) r.c.push({}); r.c.length=nc;});
+    });
+  } else if(sp.type==="flat"){
+    sp.rows.forEach(row=>row!=="PB"&&row.forEach(c=>{if(c.i&&d.vals[c.i]===undefined) d.vals[c.i]=c.def||"";}));
+  }
+}
+function cMeas(sp,d,st,O){
+  const nc=sp.comps?2:1, act=sp.comps&&st.meta.nComp==="1"?1:nc, L=[];
+  const mc=sp.mcols(d), oc=sp.ocols(d);
+  d.groups.forEach((g,gi)=>{
+    const G=numObj(g.g), lim=sp.lim!=null?sp.lim:num(g.lim);
+    g.rows.forEach((row,ri)=>{
+      const R=numObj(row.r);
+      const offRow=sp.optLast&&!d[sp.optLast.key]&&ri>=sp.sections[0].rows;
+      for(let ci=0;ci<nc;ci++){
+        const cell=row.c[ci], m={}; mc.forEach(c=>m[c.key]=num(cell[c.key]));
+        oc.forEach(o=>{
+          const v=o.manual?num(cell[o.key]):o.calc({g:G,r:R,m,k:d.k});
+          const s=!ok(v)?"empty":!ok(lim)?"nolim":stOf(v,lim);
+          O[`${sp.id}|${gi}|${ri}|${ci}|${o.key}`]={v,st:s,d:o.d};
+          if(ci<act&&!offRow) L.push(s);
+        });
+      }
+    });
+  });
+  return L;
+}
+function cFlat(sp,d,st,O){
+  const L=[], Vn=numObj(d.vals);
+  sp.rows.forEach(row=>row!=="PB"&&row.forEach(c=>{
+    if(c.chk===undefined&&!c.o) return;
+    const id=`${sp.id}|${c.i||c.oid}`; let v=NaN,s;
+    if(typeof c.chk==="function"){ s=c.chk(d.vals,st); }
+    else{
+      v=c.o?c.o(Vn):num(d.vals[c.i]);
+      const lim=c.chk===undefined?NaN:typeof c.chk==="number"?c.chk:num(d.lims[c.chk]);
+      s=!ok(v)?(sp.optional?"skip":"empty"):c.chk===undefined?"plain":!ok(lim)?"nolim":stOf(v,lim);
+    }
+    O[id]={v,st:s,d:c.d||4,plain:s==="plain"};
+    if(c.chk!==undefined) L.push(s);
+  }));
+  return L;
+}
+const gin=(E,path,val,cls="",txt=false)=>E?`<input ${txt?"":'inputmode="decimal"'} data-path="${path}" value="${esc(val??"")}" class="${cls}" aria-label="${path}">`:pv(val);
+const ginC=(path,val,id,txt=false)=>`<input ${txt?"":'inputmode="decimal"'} data-path="${path}" data-chk="${id}" value="${esc(val??"")}" class="${txt?"txt":""}" aria-label="${path}">`;
+
+function rMeas(sp,d,st,mode,O){
+  const E=mode==="edit", B=mode==="blank", nc=sp.comps?2:1;
+  const show=E&&sp.comps&&st.meta.nComp==="1"?1:nc;
+  const mc=sp.mcols(d), oc=sp.ocols(d), per=mc.length+oc.length;
+  const base=`tables.${sp.id}`, gcols=sp.gcols||[], rcols=sp.rcols||[];
+  const two=!!sp.comps, rs=two?' rowspan="2"':"";
+  const val=(p,v,cls,txt)=>B?NB:gin(E,p,v,cls,txt);
+  let h=`<table class="${E?"grid":""}"><thead><tr>`;
+  if(sp.nameCol) h+=`<th${rs}>${sp.nameCol}</th>`;
+  gcols.forEach(c=>h+=`<th${rs}>${c.h}</th>`); rcols.forEach(c=>h+=`<th${rs}>${c.h}</th>`);
+  if(two){for(let ci=0;ci<show;ci++) h+=`<th colspan="${per}">Компьютер ${ci+1}</th>`;}
+  else {mc.forEach(c=>h+=`<th>${c.h}</th>`);oc.forEach(c=>h+=`<th>${c.h}</th>`);}
+  if(sp.limcol) h+=`<th${rs}>${sp.limcol.h}</th>`;
+  h+="</tr>";
+  if(two){h+="<tr>";for(let ci=0;ci<show;ci++){mc.forEach(c=>h+=`<th>${c.h}</th>`);oc.forEach(c=>h+=`<th>${c.h}</th>`);}h+="</tr>";}
+  h+="</thead><tbody>";
+  d.groups.forEach((g,gi)=>{
+    const lines=[];
+    if(sp.sections){let ri=0;sp.sections.forEach((s,si)=>{const off=sp.optLast&&!d[sp.optLast.key]&&si>0;if(off&&E){ri+=s.rows;return;}lines.push({label:s.label});for(let k=0;k<s.rows;k++)lines.push({ri:ri++,off});});}
+    else g.rows.forEach((_,ri)=>lines.push({ri}));
+    const span=lines.length;
+    lines.forEach((ln,li)=>{
+      h+="<tr>";
+      if(li===0){
+        if(sp.nameCol) h+=`<td class="name" rowspan="${span}">${sp.nameEdit?val(`${base}.groups.${gi}.g.name`,g.g.name,"",true):sp.prefix(gi+1)}</td>`;
+        gcols.forEach(c=>h+=`<td rowspan="${span}">${val(`${base}.groups.${gi}.g.${c.key}`,g.g[c.key],"given")}</td>`);
+      }
+      if(ln.label!==undefined) h+=`<td class="span" colspan="${rcols.length+show*per}">${ln.label}</td>`;
+      else{
+        const row=g.rows[ln.ri], rp=`${base}.groups.${gi}.rows.${ln.ri}`;
+        rcols.forEach(c=>h+=`<td>${ln.off?NB:val(`${rp}.r.${c.key}`,row.r[c.key],"given")}</td>`);
+        for(let ci=0;ci<show;ci++){
+          const cell=row.c[ci], hide=B||ln.off||(!E&&sp.comps&&st.meta.nComp==="1"&&ci===1);
+          mc.forEach(c=>h+=`<td>${hide?NB:gin(E,`${rp}.c.${ci}.${c.key}`,cell[c.key])}</td>`);
+          oc.forEach(o=>{
+            const id=`${sp.id}|${gi}|${ln.ri}|${ci}|${o.key}`;
+            if(o.manual) h+=`<td>${hide?NB:E?ginC(`${rp}.c.${ci}.${o.key}`,cell[o.key],id):pv(cell[o.key])}</td>`;
+            else h+=E?`<td class="out" data-out="${id}"></td>`:`<td>${hide?NB:fv(O[id])}</td>`;
+          });
+        }
+      }
+      if(li===0&&sp.limcol) h+=`<td rowspan="${span}">${val(`${base}.groups.${gi}.lim`,g.lim,"")}</td>`;
+      h+="</tr>";
+    });
+  });
+  return h+"</tbody></table>";
+}
+function rFlat(sp,d,st,mode,O){
+  const E=mode==="edit", B=mode==="blank";
+  const head=sp.head||("<tr>"+sp.cols.map(c=>`<th>${c}</th>`).join("")+"</tr>");
+  const style=!E&&sp.width?` style="width:${sp.width}"`:"";
+  let h=`<table class="${E?"grid":sp.brk?"brk":""}"${style}><thead>${head}</thead><tbody>`;
+  sp.rows.forEach(row=>{
+    if(row==="PB"){ if(!E) h+=`</tbody></table><div class="pb"></div><table class="${sp.brk?"brk":""}"><thead>${head}</thead><tbody>`; return; }
+    h+="<tr>";
+    row.forEach(c=>{
+      const at=(c.cs?` colspan="${c.cs}"`:"")+(c.rs?` rowspan="${c.rs}"`:""), cl=c.cls?` class="${c.cls}"`:"";
+      if(c.t!==undefined) h+=`<td${at}${cl}>${c.t}</td>`;
+      else if(c.i){
+        const p=`tables.${sp.id}.vals.${c.i}`, v=d.vals[c.i];
+        if(E) h+=`<td${at}>${c.chk!==undefined?ginC(p,v,`${sp.id}|${c.i}`,c.txt):gin(true,p,v,c.given?"given":"",c.txt)}</td>`;
+        else h+=`<td${at}${cl}>${B?NB:pv(v)}</td>`;
+      } else if(c.o){
+        const id=`${sp.id}|${c.oid}`;
+        h+=E?`<td class="out" data-out="${id}"></td>`:`<td>${B?NB:fv(O[id])}</td>`;
+      }
+    });
+    h+="</tr>";
+  });
+  return h+"</tbody></table>";
+}
+function gCard(M,sp,st){
+  const d=st.tables[sp.id];
+  let ctrls="";
+  if(sp.toggle) ctrls+=`<label class="switch"><input type="checkbox" data-check="use.${sp.id}" ${st.use[sp.id]!==false?"checked":""}> Проводится</label>`;
+  if(sp.type==="meas"&&!sp.fixed) ctrls+=cnt(`tables.${sp.id}.n`,sp.countLabel||"Входов:",sp.maxN||64,d.n);
+  if(sp.optLast) ctrls+=`<label class="switch"><input type="checkbox" data-check="tables.${sp.id}.${sp.optLast.key}" data-rr ${d[sp.optLast.key]?"checked":""}> ${sp.optLast.label}</label>`;
+  if(sp.dyn) ctrls+=cnt(`tables.${sp.id}.k`,sp.dyn.label,sp.dyn.max,d.k,sp.dyn.min);
+  const lim=sp.limText?`<span class="lim">Предел: ${sp.limText}</span>`:"";
+  const lims=sp.limits?`<div class="lims">${sp.limits.map(l=>`<label>${l.label} <input inputmode="decimal" data-path="tables.${sp.id}.lims.${l.key}" value="${esc(d.lims[l.key]??"")}"></label>`).join("")}</div>`:"";
+  const table=sp.type==="meas"?rMeas(sp,d,st,"edit"):rFlat(sp,d,st,"edit");
+  return `<section class="card" id="s-${sp.id}"><div class="sec-head"><h2>${sp.cap}</h2>${lim}${ctrls}</div>${lims}<div class="scroll">${table}</div>${sp.note?`<p class="note">${sp.note}</p>`:""}</section>`;
+}
+function makeGen(def){
+  const specs=def.items.filter(x=>x.type==="meas"||x.type==="flat");
+  const checked=specs.filter(x=>x.type==="meas"||x.check);
+  const M={
+    id:def.id,label:def.label,title:def.title,subtitle:def.subtitle,words:def.words,verdictLine:def.verdictLine,
+    tabs:def.tabs,
+    fresh(){const st={meta:Object.assign({verdict:"auto",nComp:"2",date:""},def.meta),use:{},tables:{}};specs.forEach(sp=>{if(sp.toggle)st.use[sp.id]=true;});return st;},
+    shape(){const st=STORE[def.id];specs.forEach(sp=>gEnsure(sp,st));},
+    compute(){
+      const st=STORE[def.id],O={},T={};
+      specs.forEach(sp=>{const d=st.tables[sp.id];const L=sp.type==="meas"?cMeas(sp,d,st,O):cFlat(sp,d,st,O);if(checked.includes(sp))T[sp.id]=agg(L,sp.toggle?st.use[sp.id]!==false:true);});
+      const lamps=checked.map(sp=>({key:sp.id,num:sp.num,name:sp.name,st:T[sp.id],jump:sp.tab+"|"+sp.id}));
+      return {O,T,V:overall(T),lamps,info:{}};
+    },
+    view(tab,C){
+      const st=STORE[def.id];
+      if(tab==="meta") return def.metaView(st);
+      if(tab==="doc") return viewDoc(M);
+      return def.items.filter(x=>x.tab===tab).map(x=>{
+        if(x.type==="text") return x.app===false?"":`<p class="part">${x.appHtml||x.html}</p>`;
+        if(x.type==="pb") return "";
+        return gCard(M,x,st);
+      }).join("");
+    },
+    sheet(C){
+      const st=STORE[def.id];
+      let h=def.header(st);
+      def.items.forEach(x=>{
+        if(x.type==="text") h+=`<p class="${x.cls||"cap"}">${x.html}</p>`;
+        else if(x.type==="pb") h+=`<div class="pb"></div>`;
+        else{
+          const used=!x.toggle||st.use[x.id]!==false;
+          h+=`<p class="cap">${x.pcap||x.cap}</p>`;
+          h+=x.type==="meas"?rMeas(x,st.tables[x.id],st,used?"print":"blank",C.O):rFlat(x,st.tables[x.id],st,used?"print":"blank",C.O);
+        }
+      });
+      return h+def.footer(st,C);
+    }
+  };
+  return M;
+}
+function metaFields(st,fields,extra=""){
+  const m=st.meta;
+  const f=([k,l,type])=>type==="comp"
+    ?`<label>${l}<select data-path="meta.${k}" data-rr><option value="2" ${m[k]!=="1"?"selected":""}>два компьютера</option><option value="1" ${m[k]==="1"?"selected":""}>один компьютер</option></select></label>`
+    :`<label>${l}<input type="${type||"text"}" data-path="meta.${k}" value="${esc(m[k]??"")}"></label>`;
+  return `<section class="card"><div class="sec-head"><h2>Реквизиты протокола</h2></div><div class="fields">${fields.map(f).join("")}</div>${extra}</section>`;
+}
+
+/* ---------- ИМЦ-07 ---------- */
+const C2=true;
+const I07=[
+  {type:"text",tab:"po",html:"1 Идентификация ПО",cls:"fl",app:false},
+  {type:"flat",id:"po",tab:"po",num:"1.1",name:"Идентификация ПО",check:true,
+   cap:"Таблица 1.1 - Результаты идентификации ПО",
+   head:`<tr><th rowspan="2" style="width:32%">Наименование</th><th colspan="3">Идентификационные данные ПО</th></tr><tr><th>Свидетельство о метрологической аттестации</th><th>Компьютер 1</th><th>Компьютер 2</th></tr>`,
+   rows:[[{t:"Номер версии ПО",cls:"l"},{i:"vc",txt:true},{i:"v1",txt:true,chk:(V)=>cmpPO(V.v1,V.vc)},{i:"v2",txt:true,chk:(V,st)=>st.meta.nComp==="1"?"skip":cmpPO(V.v2,V.vc)}],
+         [{t:"Контрольная сумма",cls:"l"},{i:"cc",txt:true},{i:"c1",txt:true,chk:(V)=>cmpPO(V.c1,V.cc)},{i:"c2",txt:true,chk:(V,st)=>st.meta.nComp==="1"?"skip":cmpPO(V.c2,V.cc)}]],
+   note:"Данные компьютеров сравниваются со свидетельством о метрологической аттестации без учета регистра и пробелов."},
+  {type:"text",tab:"in",html:"2 Определение погрешности ИВК при измерении информативных параметров входных электрических сигналов",cls:"fl",app:false},
+  {type:"meas",id:"t21",tab:"in",num:"2.1",name:"Постоянный ток",toggle:true,comps:C2,
+   cap:`Таблица 2.1 - Результаты определения погрешности ИВК при измерении силы постоянного тока (Δ${sb("I","ИВК")} = ±0,009 мА)`,
+   lim:0.009,limText:"±0,009 мА",nameCol:"Вход",prefix:j=>`ВхТ ${j}`,defN:2,countLabel:"Токовых входов:",rowsPer:3,
+   rcols:[{key:"d",h:`${sb("I","Дi")},<br>мА`,defs:["4","12","20"]}],
+   mcols:()=>[{key:"m",h:`${sb("I","ji")},<br>мА`}],
+   ocols:()=>[{key:"e",h:`Δ${sb("I","ji")},<br>мА`,d:4,calc:x=>x.m.m-x.r.d}],
+   note:`Расчет: Δ${sb("I","ji")} = ${sb("I","ji")} − ${sb("I","Дi")}.`},
+  {type:"pb",tab:"in"},
+  {type:"meas",id:"t22",tab:"in",num:"2.2",name:"Период и частота",toggle:true,comps:C2,
+   cap:`Таблица 2.2 - Результаты определения погрешности ИВК при измерении периода и частоты импульсного сигнала (${sb("δ","Тивк")} = ±0,0015 %, ${sb("δ","fивк")} = ±0,0015 %)`,
+   lim:0.0015,limText:"±0,0015 %",nameCol:"Вход",prefix:j=>`ВхИ ${j}`,defN:1,countLabel:"Импульсных входов:",rowsPer:2,
+   rcols:[{key:"d",h:`${sb("T","Дi")},<br>мкс`}],
+   mcols:()=>[{key:"m",h:`${sb("T","ji")},<br>мкс`}],
+   ocols:()=>[{key:"e",h:`${sb("δ","Tji")},<br>%`,d:5,calc:x=>rel(x.m.m,x.r.d)},{key:"f",h:`${sb("δ","fji")},<br>%`,d:5,calc:x=>rel(x.m.m,x.r.d)}],
+   note:`Расчет: ${sb("δ","Tji")} = (${sb("T","ji")} − ${sb("T","Дi")}) / ${sb("T","Дi")} · 100; ${sb("δ","fji")} принимается равной ${sb("δ","Tji")}.`},
+  {type:"meas",id:"t23",tab:"in",num:"2.3",name:"Количество импульсов",toggle:true,comps:C2,
+   cap:`Таблица 2.3 - Результаты определения погрешности ИВК при измерении количества импульсов (${sb("δ","Nивк")} = ±0,005 %)`,
+   lim:0.005,limText:"±0,005 %",nameCol:"Вход",prefix:j=>`ВхИ ${j}`,defN:1,countLabel:"Импульсных входов:",rowsPer:3,
+   gcols:[{key:"f",h:"f,<br>Гц"},{key:"nd",h:`${sb("N","Д")},<br>имп.`}],
+   mcols:()=>[{key:"m",h:`${sb("N","ji")},<br>имп.`}],
+   ocols:()=>[{key:"e",h:`${sb("δ","Nji")}<br>%`,d:4,calc:x=>rel(x.m.m,x.g.nd)}],
+   note:`Расчет: ${sb("δ","Nji")} = (${sb("N","ji")} − ${sb("N","Д")}) / ${sb("N","Д")} · 100.`},
+  {type:"meas",id:"t24",tab:"in",num:"2.4",name:"Импульсы за интервал",toggle:true,comps:C2,fixed:true,
+   cap:`Таблица 2.4 - Результаты определения погрешности ИВК при измерении количества импульсов за интервал времени (${sb("δ","NTивк")} = ±0,005 %)`,
+   lim:0.005,limText:"±0,005 %",nameCol:null,
+   sections:[{label:"Входы Дт 1 и Дт 2",rows:2},{label:"Входы Дт 3 и Дт 4",rows:2}],
+   gcols:[{key:"f",h:"f,<br>Гц"},{key:"nd",h:`${sb("N","Д")},<br>имп.`}],
+   mcols:()=>[{key:"m",h:`${sb("N","i")},<br>имп.`}],
+   ocols:()=>[{key:"e",h:`${sb("δ","NTi")},<br>%`,d:4,calc:x=>rel(x.m.m,x.g.nd)}],
+   optLast:{key:"pair2",label:"Вторая пара детекторов (Дт 3 и Дт 4)"},
+   note:`Расчет: ${sb("δ","NTi")} = (${sb("N","i")} − ${sb("N","Д")}) / ${sb("N","Д")} · 100. Если вторая пара детекторов не используется, в протоколе ее строки остаются пустыми.`},
+  {type:"pb",tab:"in"},
+  {type:"meas",id:"t25",tab:"in",num:"2.5",name:"Отношение, один ЭПР",toggle:true,comps:C2,fixed:true,
+   cap:`Таблица 2.5 - Результаты определения погрешности ИВК при измерении отношения количества импульсов за интервал времени (для одного ЭПР (КПР)) (${sb("δ","RNTивк")} = ±0,005 %)`,
+   lim:0.005,limText:"±0,005 %",nameCol:null,rowsPer:2,
+   gcols:[{key:"fp",h:`${sb("f","П")},<br>Гц`},{key:"fe",h:`${sb("f","Э")},<br>Гц`}],
+   mcols:()=>[{key:"np",h:`${sb("N","Пi")},<br>имп`},{key:"ne",h:`${sb("N","Эi")},<br>имп`}],
+   ocols:()=>[{key:"e",h:`${sb("δ","RNTi")},<br>%`,d:4,calc:x=>{const r=x.g.fp/x.g.fe;return (x.m.np/x.m.ne-r)/r*100}}],
+   note:`Расчет: ${sb("δ","RNTi")} = (${sb("N","Пi")}/${sb("N","Эi")} − ${sb("f","П")}/${sb("f","Э")}) / (${sb("f","П")}/${sb("f","Э")}) · 100.`},
+  {type:"meas",id:"t26",tab:"in",num:"2.6",name:"Отношение, несколько ЭПР",toggle:true,comps:C2,fixed:true,
+   cap:`Таблица 2.6 - Результаты определения погрешности ИВК при измерении отношения количества импульсов за интервал времени (для нескольких ЭПР (КПР)) (${sb("δ","RNTивк")} = ±0,005 %)`,
+   lim:0.005,limText:"±0,005 %",nameCol:null,rowsPer:2,dyn:{label:"Количество ЭПР (КПР):",min:2,max:6,def:2},
+   gcols:[{key:"fp",h:`${sb("f","П")},<br>Гц`},{key:"fe",h:`${sb("f","Э")},<br>Гц`}],
+   mcols:d=>[{key:"np",h:`${sb("N","Пi")},<br>имп`}].concat(Array.from({length:d.k},(_,k)=>({key:"ne"+k,h:`${sb("N","Э"+(k+1)+"i")},<br>имп`}))),
+   ocols:()=>[{key:"e",h:`${sb("δ","RNTi")},<br>%`,d:4,calc:x=>{let s=0;for(let k=0;k<x.k;k++)s+=x.m["ne"+k];const r=x.g.fp/(x.k*x.g.fe);return (x.m.np/s-r)/r*100}}],
+   note:`Расчет: ${sb("δ","RNTi")} = (${sb("N","Пi")}/Σ${sb("N","Эki")} − ${sb("f","П")}/(n·${sb("f","Э")})) / (${sb("f","П")}/(n·${sb("f","Э")})) · 100.`},
+  {type:"text",tab:"out",html:"3 Определение погрешности ИВК при формировании информативных параметров выходных электрических сигналов",cls:"fl",app:false},
+  {type:"meas",id:"t31",tab:"out",num:"3.1",name:"Формирование тока",toggle:true,comps:C2,
+   cap:`Таблица 3.1 - Результаты определения погрешности ИВК при формировании силы постоянного тока (Δ${sb("I","ФИВК")} = ±0,015 мА)`,
+   lim:0.015,limText:"±0,015 мА",nameCol:"Выход",prefix:j=>`ВыхТ ${j}`,defN:1,countLabel:"Токовых выходов:",rowsPer:3,
+   rcols:[{key:"d",h:`${sb("I","i")},<br>мА`,defs:["4","12","20"]}],
+   mcols:()=>[{key:"m",h:`${sb("I","Дji")},<br>мА`}],
+   ocols:()=>[{key:"e",h:`Δ${sb("I","ji")},<br>мА`,d:4,calc:x=>x.r.d-x.m.m}],
+   note:`${sb("I","i")} — значение, заданное в ИВК; ${sb("I","Дji")} — значение, измеренное калибратором. Расчет: Δ${sb("I","ji")} = ${sb("I","i")} − ${sb("I","Дji")}.`},
+  {type:"text",tab:"out",html:"<b>(Измененная редакция, изм. №1)</b>",cls:"fl",app:false},
+  {type:"text",tab:"conv",html:"4 Определение погрешности ИВК при преобразовании информативных параметров входных электрических сигналов в значения величин.",cls:"fl",app:false},
+  {type:"flat",id:"t41",tab:"conv",cap:"Таблица 4.1 - Исходные данные",
+   cols:[`Δ${sb("I","ИВК")},<br>мА`,`${sb("δ","Тивк")},<br>%`,`${sb("δ","Nивк")},<br>%`,`${sb("δ","NTивк")},<br>%`,`${sb("δ","RNTивк")},<br>%`,`${sb("ρ","ППmin")},<br>кг/м<sup>3</sup>`,`${sb("β","max")},<br>1/°С`],
+   rows:[[{t:"0,009",cls:"fixed"},{t:"0,0015",cls:"fixed"},{t:"0,005",cls:"fixed"},{t:"0,005",cls:"fixed"},{t:"0,005",cls:"fixed"},{i:"rho"},{i:"beta"}]]},
+  {type:"pb",tab:"conv"},
+  {type:"flat",id:"t42",tab:"conv",cap:"Таблица 4.2 - Исходные данные ПТ",
+   cols:["Параметр",`${sb("I","min")},<br>мА`,`${sb("I","max")},<br>мА`,`${sb("t","min")},<br>°С`,`${sb("t","max")},<br>°С`],
+   rows:[["ПР","ПП","ПУ","ЭПР","М"]].flat().map(k=>[{t:sb("t",k),cls:"l name"},{i:k+"_i0"},{i:k+"_i1"},{i:k+"_x0"},{i:k+"_x1"}])},
+  {type:"text",tab:"conv",html:"Таблица 4.3 <b>(исключена, Изм. №1)</b>"},
+  {type:"flat",id:"t44",tab:"conv",cap:"Таблица 4.4 - Исходные данные ПП с токовым выходом",
+   cols:["Параметр",`${sb("I","min")},<br>мА`,`${sb("I","max")},<br>мА`,`${sb("ρ","min")},<br>кг/м<sup>3</sup>`,`${sb("ρ","max")},<br>кг/м<sup>3</sup>`],
+   rows:[[{t:sb("ρ","ПП"),cls:"l name"},{i:"i0"},{i:"i1"},{i:"r0"},{i:"r1"}]]},
+];
+const P45="Относительная погрешность ИВК при преобразовании информативных параметров входных электрических сигналов в значение ";
+const K45="коэффициента преобразования (коэффициента коррекции, градуировочного коэффициента) ПМР при определении МХ по ";
+const R45=[["объема жидкости (ПОР), "+sb("δ","V пор")+", %",0.005],["объема жидкости (ПМР и ПП), "+sb("δ","V пмр")+", %",0.02],
+ ["объема жидкости при стандартных условиях (ПОР), "+sb("δ","Vo пор")+", %",0.02],["объема жидкости при стандартных условиях (ПМР и ПП), "+sb("δ","Vo пмр")+", %",0.02],
+ ["массы жидкости (ПОР и ПП), "+sb("δ","M пор")+", %",0.02],["массы жидкости (ПМР), "+sb("δ","M пмр")+", %",0.005],
+ ["коэффициента преобразования ПОР при определении МХ по ПУ, "+sb("δ","K пор пу")+", %",0.02],
+ ["коэффициента преобразования ПОР при определении МХ по ЭПОР (КПОР, ПОР), "+sb("δ","K пор эпор")+", %",0.02],"PB",
+ ["коэффициента преобразования ПОР при определении МХ по ЭПМР (КПМР, ПМР) и ПП, "+sb("δ","K пор эпмр")+", %",0.02],
+ ["коэффициента преобразования ПОР при определении МХ по мернику, "+sb("δ","K пор м")+", %",0.02],
+ [K45+"ПУ и ПП, "+sb("δ","K пмр пу")+", %",0.02],[K45+"ЭПОР (КПОР, ПОР) и ПП, "+sb("δ","K пмр эпор")+", %",0.02],[K45+"ЭПМР (КПМР, ПМР), "+sb("δ","K пмр эпмр")+", %",0.005]];
+I07.push({type:"flat",id:"t45",tab:"conv",num:"4.5",name:"Преобразование в величины",check:true,optional:true,brk:true,
+  cap:"Таблица 4.5 - Результаты определения погрешности ИВК при преобразовании информативных параметров входных электрических сигналов в значения величин",
+  head:`<tr><th>Наименование</th><th style="width:20mm">Значение</th><th style="width:18mm">Пределы</th></tr>`,
+  rows:R45.map((r,i)=>r==="PB"?"PB":[{t:P45+r[0],cls:"l"},{i:"r"+i,chk:r[1]},{t:"±"+String(r[1]).replace(".",",")}]),
+  note:"Значения вносятся из расчета по методике поверки ИМЦ-07 (формулы в форме протокола не приведены) и сравниваются с пределами. Пустые строки считаются неприменимыми."});
+const MOD07=makeGen({
+  id:"imc07",label:"ИМЦ-07",title:"Поверка ИВК ИМЦ-07",subtitle:"Протокол по форме приложения Б методики поверки ИВК ИМЦ-07",
+  words:["годен","не годен"],verdictLine:true,
+  tabs:[["meta","Реквизиты"],["po","1 Идентификация ПО"],["in","2 Входные сигналы"],["out","3 Выходные сигналы"],["conv","4 Преобразование в величины"],["doc","Протокол"]],
+  meta:{no:"",zav:"",vyp:"",own:"",place:"",mp:"",etType:"",etNo:"",tAir:"",pAir:"",hum:"",who:""},
+  items:I07,
+  metaView:st=>metaFields(st,[["no","Протокол №"],["zav","Заводской номер ИВК"],["vyp","Дата выпуска"],["own","Принадлежит"],["place","Место проведения поверки"],["mp","Методика поверки"],["etType","Средство поверки: тип"],["etNo","Средство поверки: зав. №"],["tAir","Температура окружающего воздуха, °С"],["pAir","Атмосферное давление, кПа"],["hum","Относительная влажность воздуха, %"],["who","Лицо, проводившее поверку (И.О. Фамилия)"],["date","Дата проведения поверки","date"],["nComp","Компьютеров в составе ИВК","comp"]],
+    `<p class="note">Если компьютер один, столбцы «Компьютер 2» скрываются и не учитываются в заключении, а в печатной форме остаются пустыми.</p>`),
+  header:st=>{const m=st.meta,g=pv;return `<h4><b>Приложение Б</b></h4><h4>Форма протокола поверки ИВК</h4>
+    <p class="pt" style="font-weight:400">ПРОТОКОЛ № ${m.no?`<span class="u" style="min-width:18mm">${esc(m.no)}</span>`:"___"}</p><p class="pt" style="margin-top:0;font-weight:400">поверки ИВК ИМЦ-07</p>
+    <div style="margin-top:12px">
+    <p class="fl">Заводской номер <span class="u" style="min-width:50mm">${g(m.zav)}</span> Дата выпуска <span class="u">${g(m.vyp)}</span></p>
+    <p class="fl">Принадлежит <span class="u w" style="min-width:120mm">${g(m.own)}</span></p>
+    <p class="fl">Место проведения поверки <span class="u w">${g(m.place)}</span></p>
+    <p class="fl">Методика поверки: <span class="u w" style="min-width:112mm">${g(m.mp)}</span></p>
+    <p class="fl">Средство поверки: тип <span class="u" style="min-width:55mm">${g(m.etType)}</span> зав. № <span class="u" style="min-width:32mm">${g(m.etNo)}</span></p>
+    <p class="fl">Условия проведения поверки:</p>
+    <p class="fl" style="margin-left:64px">Температура окружающего воздуха, °С <span class="u" style="min-width:12mm">${g(m.tAir)}</span></p>
+    <p class="fl" style="margin-left:64px">Атмосферное давление, кПа <span class="u" style="min-width:12mm">${g(m.pAir)}</span></p>
+    <p class="fl" style="margin-left:64px">Относительная влажность воздуха, % <span class="u" style="min-width:12mm">${g(m.hum)}</span></p></div>`},
+  footer:(st,C)=>{const m=st.meta,vv=verdictText(m.verdict,C.V,["годен","не годен"]);return `
+    <p class="sig" style="margin-left:40px">Заключение: ИВК ИМЦ-07 к дальнейшей эксплуатации <span class="u" style="min-width:48mm;text-align:center">${vv||NB}</span><span class="hint" style="margin-left:100mm;text-align:left">годен, не годен</span></p>
+    <p class="sig" style="margin-left:40px">Лицо, проводившее поверку &nbsp; <span class="u" style="min-width:32mm">${NB}</span> &nbsp; <span class="u" style="min-width:45mm;text-align:center">${pv(m.who)}</span><span class="hint" style="margin-left:52mm;text-align:left">подпись &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; И.О. Фамилия</span></p>
+    <p class="sig" style="margin-left:40px">Дата проведения поверки &nbsp;&nbsp; ${dateRu(m.date)}</p>`}
+});
+
+/* ---------- ОКТОПУС-Л ---------- */
+const TB='<span class="sp">Таблица</span>';
+const IOC=[
+  {type:"text",tab:"b1",html:"<b>Б.1 Определение погрешности при измерениях входных сигналов</b>",cls:"fl",app:false},
+  {type:"meas",id:"b11",tab:"b1",num:"Б.1.1",name:"Ток",toggle:true,
+   cap:"Таблица Б.1.1 – Результаты определения погрешности при измерениях тока",pcap:`${TB} Б.1.1 – Результаты определения  погрешности при измерениях тока`,
+   limText:`по столбцу Δ${sb("I","Д")}, для каждого входа`,nameCol:"Вход",prefix:j=>`ВхТ ${j}`,defN:2,countLabel:"Токовых входов:",rowsPer:3,
+   rcols:[{key:"d",h:`${sb("I","Дi")}<br>мА`,defs:["4","12","20"]}],
+   mcols:()=>[{key:"m",h:`${sb("I","ji")}<br>мА`}],
+   ocols:()=>[{key:"e",h:`Δ${sb("I","ji")}<br>мА`,d:4,calc:x=>x.m.m-x.r.d}],
+   limcol:{h:`Δ${sb("I","Д")}<br>мА`},
+   note:`Расчет: Δ${sb("I","ji")} = ${sb("I","ji")} − ${sb("I","Дi")}, сравнивается с допускаемым Δ${sb("I","Д")} (последний столбец, вводится по методике поверки).`},
+  {type:"meas",id:"b12",tab:"b1",num:"Б.1.2",name:"Период",toggle:true,
+   cap:"Таблица Б.1.2 – Результаты определения погрешности при измерениях периода",pcap:`${TB} Б.1.2 – Результаты определения  погрешности при измерениях периода`,
+   limText:`по столбцу ${sb("δ","TД")}`,nameCol:"Вход",prefix:j=>`ВхЧ ${j} (ВхИ ${j})`,defN:1,countLabel:"Частотных входов:",rowsPer:2,
+   rcols:[{key:"d",h:`${sb("T","Дi")}<br>мкс`}],
+   mcols:()=>[{key:"m",h:`${sb("T","ji")}<br>мкс`}],
+   ocols:()=>[{key:"e",h:`${sb("δ","Tji")}<br>%`,d:5,calc:x=>rel(x.m.m,x.r.d)}],
+   limcol:{h:`${sb("δ","TД")}<br>%`},
+   note:`Расчет: ${sb("δ","Tji")} = (${sb("T","ji")} − ${sb("T","Дi")}) / ${sb("T","Дi")} · 100.`},
+  {type:"meas",id:"b13",tab:"b1",num:"Б.1.3",name:"Количество импульсов",toggle:true,
+   cap:"Таблица Б.1.3 – Результаты определения погрешности при измерениях количества импульсов",pcap:`${TB} Б.1.3 – Результаты определения погрешности при измерениях количества импульсов`,
+   limText:`по столбцу ${sb("δ","NД")}`,nameCol:"Вход",prefix:j=>`ВхИ ${j}`,defN:1,countLabel:"Импульсных входов:",rowsPer:3,
+   gcols:[{key:"f",h:"f<br>Гц"},{key:"nd",h:`${sb("N","д")}<br>имп`}],
+   mcols:()=>[{key:"m",h:`${sb("N","ji")}<br>имп`}],
+   ocols:()=>[{key:"e",h:`${sb("δ","Nji")}<br>%`,d:4,calc:x=>rel(x.m.m,x.g.nd)}],
+   limcol:{h:`${sb("δ","NД")}<br>%`},
+   note:`Расчет: ${sb("δ","Nji")} = (${sb("N","ji")} − ${sb("N","д")}) / ${sb("N","д")} · 100.`},
+  {type:"pb",tab:"b1"},
+  {type:"meas",id:"b14",tab:"b1",num:"Б.1.4",name:"Импульсы за интервал",toggle:true,fixed:true,nameEdit:true,
+   cap:"Таблица Б.1.4 – Результаты определения погрешности при измерениях количества импульсов за интервал времени",pcap:`${TB} Б.1.4 – Результаты определения  погрешности при измерениях количества импульсов за интервал времени`,
+   limText:`по столбцу ${sb("δ","NДД Д")}`,nameCol:"Вход",rowsPer:3,
+   gcols:[{key:"F",h:"F<br>Гц"},{key:"nd",h:`${sb("N","ДДД")}<br>имп`}],
+   mcols:()=>[{key:"m",h:`${sb("N","ДДi")}<br>имп`}],
+   ocols:()=>[{key:"e",h:`${sb("δ","NДДi")}<br>%`,d:4,calc:x=>rel(x.m.m,x.g.nd)}],
+   limcol:{h:`${sb("δ","NДД Д")}<br>%`},
+   note:`Расчет: ${sb("δ","NДДi")} = (${sb("N","ДДi")} − ${sb("N","ДДД")}) / ${sb("N","ДДД")} · 100. Обозначение входа вводится в первом столбце.`},
+  {type:"meas",id:"b15",tab:"b1",num:"Б.1.5",name:"Отношение импульсов",toggle:true,fixed:true,nameEdit:true,
+   cap:"Таблица Б.1.5 – Результаты определения погрешности при измерениях отношения количества импульсов",pcap:`${TB} Б.1.5 – Результаты определения  погрешности при измерениях отношения количества импульсов`,
+   limText:`по столбцу ${sb("δ","KN Д")}`,nameCol:"Вход",rowsPer:3,
+   gcols:[{key:"fp",h:`${sb("f","P")}<br>Гц`}],
+   mcols:()=>[{key:"ne",h:`${sb("N","Эi")}<br>имп`},{key:"np",h:`${sb("N","Pi")}<br>имп`}],
+   ocols:()=>[{key:"e",h:`${sb("δ","KNi")}<br>%`,d:4,manual:true}],
+   limcol:{h:`${sb("δ","KN Д")}<br>%`},
+   note:`${sb("δ","KNi")} вводится вручную: формула в форме протокола не приведена, ее нужно взять из методики поверки ОКТОПУС-Л. Введенное значение сравнивается с ${sb("δ","KN Д")}.`},
+  {type:"text",tab:"b2",html:"<b>Б.2 Определение погрешности при преобразовании входных сигналов в значения величин</b>",cls:"fl",app:false},
+  {type:"flat",id:"b21",tab:"b2",num:"Б.2.1",name:"Объем, масса",toggle:true,check:true,width:"72%",
+   cap:"Таблица Б.2.1 – Результаты определения погрешности при преобразовании входных сигналов в значения объема, массы",pcap:`${TB} Б.2.1 – Результаты определения погрешности при преобразовании входных сигналов в значения объема, массы`,
+   cols:[`${sb("δ","V")}<br>%`,`${sb("δ","ρ")}<br>%`,`${sb("δ","t")}<br>%`,`${sb("δ","P")}<br>%`,`${sb("δ","M")}<br>%`],
+   rows:[[{i:"dV",chk:"V"},{i:"dr"},{i:"dt"},{i:"dP"},{i:"dM",chk:"M"}]],
+   limits:[{key:"V",label:"Предел δV, %"},{key:"M",label:"Предел δM, %"}]},
+  {type:"flat",id:"b22",tab:"b2",num:"Б.2.2",name:"Коэф. ПР по ТПУ",toggle:true,check:true,
+   cap:"Таблица Б.2.2 – Результаты определения погрешности при преобразовании входных сигналов в значение коэффициента преобразования ПР при поверке по ТПУ",pcap:`${TB} Б.2.2 – Результаты определения погрешности при преобразовании входных сигналов в значение коэффициента преобразования ПР при поверке по ТПУ`,
+   cols:[`${sb("δ","NДДД")}<br>%`,`${sb("δ","tK")}<br>%`,`${sb("δ","PK")}<br>%`,`${sb("δ","K")}<br>%`],
+   rows:[[{i:"dN"},{i:"dt"},{i:"dP"},{i:"dK",chk:"K"}]],limits:[{key:"K",label:"Предел δK, %"}]},
+  {type:"flat",id:"b23",tab:"b2",num:"Б.2.3",name:"Коэф. МР по ТПУ",toggle:true,check:true,
+   cap:"Таблица Б.2.3 – Результаты определения погрешности при преобразовании входных сигналов в значение коэффициента преобразования МР при поверке по ТПУ",pcap:`${TB} Б.2.3 – Результаты определения погрешности при преобразовании входных сигналов в значение коэффициента преобразования МР при поверке по ТПУ`,
+   cols:[`${sb("δ","NДДД")}<br>%`,`${sb("δ","ρ")}<br>%`,`${sb("δ","tМР")}<br>%`,`${sb("δ","PМР")}<br>%`,`${sb("δ","KМ")}<br>%`],
+   rows:[[{i:"dN"},{i:"dr"},{i:"dt"},{i:"dP"},{i:"dK",chk:"K"}]],limits:[{key:"K",label:"Предел δKМ, %"}]},
+  {type:"flat",id:"b24",tab:"b2",num:"Б.2.4",name:"Коэф. по эталонному ПР",toggle:true,check:true,
+   cap:"Таблица Б.2.4 – Результаты определения погрешности при преобразовании входных сигналов в значение коэффициента преобразования ПР (МР) при поверке по эталонному ПР (МР)",pcap:`${TB} Б.2.4 – Результаты определения погрешности при преобразовании входных сигналов в значение коэффициента преобразования ПР (МР) при поверке по эталонному ПР (МР)`,
+   cols:[`${sb("δ","KNД")}<br>%`,`${sb("δ","tЭ")}<br>%`,`${sb("δ","PЭ")}<br>%`,`${sb("δ","KЭ")}<br>%`],
+   rows:[[{i:"dN"},{i:"dt"},{i:"dP"},{i:"dK",chk:"K"}]],limits:[{key:"K",label:"Предел δKЭ, %"}]},
+  {type:"pb",tab:"b2"},
+  {type:"flat",id:"b25",tab:"b2",num:"Б.2.5",name:"Объем газа при с.у.",toggle:true,check:true,
+   cap:"Таблица Б.2.5 – Результаты определения погрешности при вычислениях объема газа, приведенного к стандартным условиям",pcap:`${TB} Б.2.5 – Результаты определения погрешности при вычислениях объема газа, приведенного к стандартным условиям`,
+   cols:["Расход при н.у.,<br>м<sup>3</sup>/ч","Время замера,<br>мин",`<i>V</i><sub>изм</sub><br>м<sup>3</sup>`,`<i>V</i><sub>расч</sub><br>м<sup>3</sup>`,`<i>δ</i><sub>V</sub><br>%`],
+   rows:[[{i:"q"},{i:"tm"},{i:"vi"},{i:"vr"},{o:V=>rel(V.vi,V.vr),oid:"dV",d:4,chk:"V"}]],limits:[{key:"V",label:"Предел δV, %"}],
+   note:"Расчет: δV = (Vизм − Vрасч) / Vрасч · 100."},
+];
+const MODOC=makeGen({
+  id:"oct",label:"ОКТОПУС-Л",title:"Поверка ИВК «ОКТОПУС-Л»",subtitle:"Протокол по форме приложения Б методики поверки ИВК «ОКТОПУС-Л» («OCTOPUS-L»)",
+  words:["годен","не годен"],verdictLine:false,
+  tabs:[["meta","Реквизиты"],["b1","Б.1 Входные сигналы"],["b2","Б.2 Преобразование в величины"],["doc","Протокол"]],
+  meta:{no:"",zav:"",vyp:"",pred:"",place:"",who:"",who2:""},
+  items:IOC,
+  metaView:st=>metaFields(st,[["no","Протокол №"],["zav","Заводской номер ИВК"],["vyp","Дата выпуска"],["pred","Представлен"],["place","Место проведения поверки"],["who","Должности лиц, проводивших поверку"],["who2","И.О. Фамилии лиц, проводивших поверку"],["date","Дата проведения поверки","date"]],
+    `<p class="note">Пределы для таблиц Б.1 вводятся в столбцы допускаемых значений (ΔIД, δTД, δNД и др.) по методике поверки. Для таблиц Б.2 пределы задаются над каждой таблицей и в печатную форму не выводятся. Строки заключения в форме ОКТОПУС-Л нет, поэтому итог отображается только на панели.</p>`),
+  header:st=>{const m=st.meta,g=pv;return `<div class="rh"><span>ИВК «ОКТОПУС-Л» («OCTOPUS-L»)</span><span>Методика поверки</span></div>
+    <h4><b>Приложение Б</b></h4><h4><b>(рекомендуемое)</b></h4><h4><b>Формы протоколов поверки ИВК «ОКТОПУС-Л» («OCTOPUS-L»)</b></h4>
+    <p class="pt" style="font-weight:400">ПРОТОКОЛ № ${m.no?`<span class="u" style="min-width:18mm">${esc(m.no)}</span>`:"___"}</p><h4>поверки ИВК «ОКТОПУС-Л» («OCTOPUS-L»)</h4><h4>(форма)</h4>
+    <div style="margin-top:8px">
+    <p class="fl">Заводской номер <span class="u" style="min-width:34mm">${g(m.zav)}</span> &nbsp;&nbsp;&nbsp;&nbsp; Дата выпуска <span class="u">${g(m.vyp)}</span></p>
+    <p class="fl">Представлен<span class="u" style="min-width:48mm">${g(m.pred)}</span></p>
+    <p class="fl">Место проведения поверки <span class="u w" style="min-width:100mm">${g(m.place)}</span></p></div>`},
+  footer:(st)=>{const m=st.meta;return `<div style="margin-top:18px">
+    <p class="fl" style="margin-left:0">Должности, подписи &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="u" style="min-width:110mm">${pv(m.who)}</span></p>
+    <p class="fl" style="margin-left:0">и.о.фамилии лиц, &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="u" style="min-width:110mm">${pv(m.who2)}</span></p>
+    <p class="fl" style="margin-left:0">проводивших поверку &nbsp;&nbsp;&nbsp; <span class="u" style="min-width:110mm">${NB}</span></p>
+    <p class="fl" style="margin-left:0;margin-top:10px">Дата проведения поверки ${dateRu(m.date,false)}</p></div>`}
+});
+
+/* =====================================================================
+   Оболочка
+   ===================================================================== */
+const MODS={imc03:MOD03,imc07:MOD07,oct:MODOC};
+function freshStore(){return {device:"imc03",tab:{imc03:"meta",imc07:"meta",oct:"meta"},imc03:fresh03(),imc07:MOD07.fresh(),oct:MODOC.fresh()}}
+function loadStore(){
+  const fs=freshStore();
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){const x=JSON.parse(raw);fs.device=MODS[x.device]?x.device:"imc03";Object.assign(fs.tab,x.tab||{});
+      if(x.imc03) fs.imc03=Object.assign(fresh03(),x.imc03);
+      if(x.imc07) fs.imc07=Object.assign(MOD07.fresh(),x.imc07,{meta:Object.assign(MOD07.fresh().meta,x.imc07.meta||{})});
+      if(x.oct) fs.oct=Object.assign(MODOC.fresh(),x.oct,{meta:Object.assign(MODOC.fresh().meta,x.oct.meta||{})});
+      return fs;}
+    const old=localStorage.getItem(KEY_OLD);
+    if(old){const x=JSON.parse(old);delete x.tab;fs.imc03=Object.assign(fresh03(),x);}
+  }catch(e){}
+  return fs;
+}
+let STORE=loadStore(); S=STORE.imc03;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(STORE))}catch(e){}}
+const M=()=>MODS[STORE.device];
+const cur=()=>STORE[STORE.device];
+const curTab=()=>STORE.tab[STORE.device];
+
+function viewDoc(mod){
+  const st=STORE[mod.id],v=st.meta.verdict;
+  const sel=mod.verdictLine?`<label class="ctrl">Заключение: <select data-path="meta.verdict"><option value="auto" ${v==="auto"?"selected":""}>по результатам расчета</option><option value="yes" ${v==="yes"?"selected":""}>${mod.words[0]}</option><option value="no" ${v==="no"?"selected":""}>${mod.words[1]}</option></select></label>`:"";
+  return `<section class="card"><div class="sec-head"><h2>Протокол для печати</h2>${sel}<button class="btn primary" type="button" data-print>Печать протокола</button></div><p class="note" id="docNote"></p></section><div class="sheet-wrap"><div class="sheet" id="preview"></div></div>`;
+}
+const ST={ok:"в норме",fail:"превышение",empty:"не заполнено",partial:"заполнено частично",off:"не проводится"};
+function panel(C){
+  const mod=M();
+  const items=C.lamps.map(l=>`<button type="button" class="lamp ${l.st}" data-jump="${l.jump}" role="listitem"><i></i><span><b>${l.num} ${l.name}</b><span>${ST[l.st]}</span></span></button>`).join("");
+  const vt={ok:mod.words[0],fail:mod.words[1],partial:"есть незаполненные разделы",empty:"данных нет"}[C.V];
+  return items+`<button type="button" class="lamp verdict ${C.V==="ok"?"ok":C.V==="fail"?"fail":"partial"}" data-jump="doc|" role="listitem"><i></i><span><b>Заключение</b><span>${vt}</span></span></button>`;
+}
+const app=document.getElementById("app");
+function render(){
+  const mod=M(); mod.shape();
+  const C=mod.compute(), tab=curTab();
+  document.getElementById("hTitle").textContent=mod.title;
+  document.getElementById("hSub").textContent=mod.subtitle;
+  document.getElementById("device").value=STORE.device;
+  document.title=mod.title;
+  document.getElementById("tabs").innerHTML=mod.tabs.map(([id,l])=>`<button class="tab" role="tab" data-tab="${id}" aria-selected="${id===tab}">${l}</button>`).join("");
+  app.innerHTML=mod.view(tab,C);
+  refresh(C);
+}
+function refresh(C){
+  const mod=M(); C=C||mod.compute();
+  document.getElementById("panel").innerHTML=panel(C);
+  app.querySelectorAll("[data-out]").forEach(el=>{
+    const o=C.O[el.dataset.out]; if(!o) return;
+    el.className="out "+(o.plain&&o.st==="ok"?"":o.plain&&o.st==="plain"?"":o.st);
+    el.textContent=o.st==="off"?(o.txtOff||"—"):ok(o.v)?fmt(o.v,o.d):"—";
+  });
+  app.querySelectorAll("[data-chk]").forEach(el=>{const o=C.O[el.dataset.chk];el.classList.remove("ok","fail");if(o&&(o.st==="ok"||o.st==="fail"))el.classList.add(o.st);});
+  app.querySelectorAll("[data-info]").forEach(el=>{el.textContent=C.info[el.dataset.info]||"";});
+  const pvw=document.getElementById("preview"); if(pvw) pvw.innerHTML=mod.sheet(C);
+  const dn=document.getElementById("docNote");
+  if(dn){const bad=C.lamps.filter(l=>l.st==="fail").map(l=>l.num),inc=C.lamps.filter(l=>l.st==="empty"||l.st==="partial").map(l=>l.num);
+    dn.textContent=(bad.length?`Превышение пределов: таблицы ${bad.join(", ")}. `:"")+(inc.length?`Не заполнены до конца или без предела: таблицы ${inc.join(", ")}. `:"")+(!bad.length&&!inc.length?"Все проводимые определения заполнены и находятся в пределах допуска.":"");}
+  return C;
+}
+function setPath(path,val){const p=path.split(".");let o=cur();for(let i=0;i<p.length-1;i++){if(o[p[i]]===undefined)o[p[i]]={};o=o[p[i]];}o[p[p.length-1]]=val;}
+app.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.path&&t.type!=="checkbox"&&t.type!=="number"){setPath(t.dataset.path,t.value);save();if(t.hasAttribute("data-rr")){render();return;}refresh();}
+});
+app.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.check){setPath(t.dataset.check,t.checked);save();t.hasAttribute("data-rr")?render():refresh();}
+  else if(t.dataset.count){setPath(t.dataset.count,t.value);save();render();}
+});
+app.addEventListener("click",e=>{if(e.target.closest("[data-print]"))doPrint();});
+document.getElementById("tabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(!b)return;STORE.tab[STORE.device]=b.dataset.tab;save();render();window.scrollTo(0,0);});
+document.getElementById("panel").addEventListener("click",e=>{
+  const b=e.target.closest("[data-jump]");if(!b)return;const[tab,anchor]=b.dataset.jump.split("|");
+  STORE.tab[STORE.device]=tab;save();render();
+  const el=anchor&&document.getElementById("s-"+anchor); if(el) el.scrollIntoView({block:"start"}); else window.scrollTo(0,0);
+});
+document.getElementById("device").addEventListener("change",e=>{STORE.device=e.target.value;save();render();window.scrollTo(0,0);});
+function doPrint(){document.getElementById("print").innerHTML=`<div class="sheet">${M().sheet(M().compute())}</div>`;window.print();}
+document.getElementById("btnPrint").addEventListener("click",doPrint);
+document.getElementById("btnReset").addEventListener("click",()=>{
+  const mod=M();
+  if(confirm(`Очистить все данные протокола ${mod.label} и начать новый?`)){STORE[mod.id]=mod.fresh();STORE.tab[mod.id]="meta";if(mod.id==="imc03")S=STORE.imc03;save();render();}
+});
+render();
+})();
+
+</script>
+</body>
+</html>
